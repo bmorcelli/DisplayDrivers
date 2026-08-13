@@ -36,7 +36,7 @@ void setup() {
 
 ```ini
 lib_deps =
-	https://github.com/bmorcelli/Launcher.git
+	https://github.com/bmorcelli/DisplayDrivers.git
 	; and one of:
 	;moononournation/GFX Library for Arduino @ ^1.5.5
 	;lovyan03/LovyanGFX @ ^1.2.7
@@ -684,12 +684,12 @@ Optional tuning macros (all have defaults):
 #define EPD_PAINTER_DIRTY_TOLERANCE 10          // px tolerance when merging dirty rects
 ```
 
-`TFT_WIDTH` / `TFT_HEIGHT` are still worth defining for the rest of the launcher, but the real
+`TFT_WIDTH` / `TFT_HEIGHT` are still worth defining for the rest of the project, but the real
 geometry comes from the preset and is read back from the panel after `begin()`.
 
 ### Colours
 
-The launcher draws in RGB565; the canvas is level-indexed (`0` = paper white, `LEVELS-1` = black).
+The Project draws in RGB565; the canvas is level-indexed (`0` = paper white, `LEVELS-1` = black).
 The HAL converts by luminance, so `TFT_RED` lands on a mid grey instead of disappearing into white.
 
 ### Extra methods
@@ -749,7 +749,7 @@ Each of `GXEPD2_CS`, `GXEPD2_DC`, `GXEPD2_BUSY` and `GXEPD2_RST` can be defined 
 ### Colours
 
 The panel has two levels. Fills and images are ordered-dithered (4x4 Bayer) by luminance, so the
-launcher's greys survive as patterns; text is snapped to the nearer level instead, because
+projects's greys survive as patterns; text is snapped to the nearer level instead, because
 dithering glyph pixels smears them.
 
 ### Refresh policy
