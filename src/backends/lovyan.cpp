@@ -23,42 +23,46 @@ tft_display::tft_display(int16_t _W, int16_t _H) : _height(_H), _width(_W) {}
 void tft_display::begin(uint32_t speed) {
     (void)speed;
 
+    // Values come from displayConfig, which the macros seeded and a board may
+    // since have rewritten. The bus *family* and the panel *class* are still
+    // compile-time (they are the types of the two members above), so what can
+    // change at runtime is every pin, frequency and dimension — enough to tell
+    // two boards with the same controller and different wiring apart.
     {
         auto cfg = _bus_instance.config();
-        // Every macro used below is either required or defaulted in lovyan.h.
 #if defined(LOVYAN_SPI_BUS)
-        cfg.spi_host = TFT_SPI_HOST;
-        cfg.spi_mode = TFT_SPI_MODE;
-        cfg.freq_write = TFT_WRITE_FREQ;
-        cfg.freq_read = TFT_READ_FREQ;
-        cfg.spi_3wire = TFT_SPI_3WIRE;
-        cfg.use_lock = TFT_USE_LOCK;
+        cfg.spi_host = displayConfig.spiHost;
+        cfg.spi_mode = displayConfig.spiMode;
+        cfg.freq_write = displayConfig.freqWrite;
+        cfg.freq_read = displayConfig.freqRead;
+        cfg.spi_3wire = displayConfig.spi3wire;
+        cfg.use_lock = displayConfig.useLock;
         cfg.dma_channel = SPI_DMA_CH_AUTO;
-        cfg.pin_sclk = TFT_SCLK;
-        cfg.pin_mosi = TFT_MOSI;
-        cfg.pin_miso = TFT_MISO;
-        cfg.pin_dc = TFT_DC;
+        cfg.pin_sclk = displayConfig.sclk;
+        cfg.pin_mosi = displayConfig.mosi;
+        cfg.pin_miso = displayConfig.miso;
+        cfg.pin_dc = displayConfig.dc;
 
 #elif defined(LOVYAN_I2C_BUS)
-        cfg.i2c_port = TFT_I2C_PORT;    // (0 or 1)
-        cfg.freq_write = TFT_I2C_WRITE; // 400000
-        cfg.freq_read = TFT_I2C_READ;   // 400000
-        cfg.pin_sda = TFT_SDA;          //
-        cfg.pin_scl = TFT_SCL;          //
-        cfg.i2c_addr = TFT_ADDR;        //
+        cfg.i2c_port = displayConfig.i2cPort;
+        cfg.freq_write = displayConfig.freqWrite;
+        cfg.freq_read = displayConfig.freqRead;
+        cfg.pin_sda = displayConfig.sda;
+        cfg.pin_scl = displayConfig.scl;
+        cfg.i2c_addr = displayConfig.i2cAddr;
 #elif defined(LOVYAN_8PARALLEL_BUS)
-        cfg.freq_write = TFT_WRITE_FREQ;
-        cfg.pin_wr = TFT_WR;
-        cfg.pin_rd = TFT_RD;
-        cfg.pin_rs = TFT_DC;
-        cfg.pin_d0 = TFT_D0;
-        cfg.pin_d1 = TFT_D1;
-        cfg.pin_d2 = TFT_D2;
-        cfg.pin_d3 = TFT_D3;
-        cfg.pin_d4 = TFT_D4;
-        cfg.pin_d5 = TFT_D5;
-        cfg.pin_d6 = TFT_D6;
-        cfg.pin_d7 = TFT_D7;
+        cfg.freq_write = displayConfig.freqWrite;
+        cfg.pin_wr = displayConfig.wr;
+        cfg.pin_rd = displayConfig.rd;
+        cfg.pin_rs = displayConfig.dc;
+        cfg.pin_d0 = displayConfig.d[0];
+        cfg.pin_d1 = displayConfig.d[1];
+        cfg.pin_d2 = displayConfig.d[2];
+        cfg.pin_d3 = displayConfig.d[3];
+        cfg.pin_d4 = displayConfig.d[4];
+        cfg.pin_d5 = displayConfig.d[5];
+        cfg.pin_d6 = displayConfig.d[6];
+        cfg.pin_d7 = displayConfig.d[7];
 #else
 #error "Define a bus: LOVYAN_SPI_BUS, LOVYAN_I2C_BUS, LOVYAN_8PARALLEL_BUS."
 #endif
@@ -69,21 +73,21 @@ void tft_display::begin(uint32_t speed) {
 
     {
         auto cfg = _panel_instance.config();
-        cfg.pin_cs = TFT_CS;
-        cfg.pin_rst = TFT_RST;
-        cfg.pin_busy = TFT_BUSY_PIN;
-        cfg.memory_width = TFT_MEM_WIDTH;
-        cfg.memory_height = TFT_MEM_HEIGHT;
-        cfg.panel_width = TFT_WIDTH;
-        cfg.panel_height = TFT_HEIGHT;
-        cfg.offset_x = TFT_OFFSET_X;
-        cfg.offset_y = TFT_OFFSET_Y;
-        cfg.offset_rotation = TFT_ROTATION;
+        cfg.pin_cs = displayConfig.cs;
+        cfg.pin_rst = displayConfig.rst;
+        cfg.pin_busy = displayConfig.busy;
+        cfg.memory_width = displayConfig.memWidth;
+        cfg.memory_height = displayConfig.memHeight;
+        cfg.panel_width = displayConfig.width;
+        cfg.panel_height = displayConfig.height;
+        cfg.offset_x = displayConfig.offsetX;
+        cfg.offset_y = displayConfig.offsetY;
+        cfg.offset_rotation = displayConfig.rotation;
         cfg.readable = true;
-        cfg.invert = TFT_INVERTION;
-        cfg.rgb_order = TFT_RGB_ORDER;
+        cfg.invert = displayConfig.invert;
+        cfg.rgb_order = displayConfig.rgbOrder;
         cfg.dlen_16bit = false;
-        cfg.bus_shared = TFT_BUS_SHARED;
+        cfg.bus_shared = displayConfig.busShared;
         _panel_instance.config(cfg);
         setPanel(&_panel_instance);
     }

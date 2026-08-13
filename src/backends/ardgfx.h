@@ -164,6 +164,49 @@ class tft_logger;
     #endif
 #endif
 
+// ---------------------------------------------------------------------------
+// Panel init tables (RGB and DSI)
+//
+// On every other bus the panel's register sequence is baked into the driver
+// class, and swapping panels means swapping the class. RGB and DSI have no
+// class of their own -- the panel *is* the bus -- so their sequence arrives as
+// a table instead, and that table is the only thing separating two panels on
+// the same board. displayConfig carries a pointer to it so board code can aim
+// it somewhere else before begin(); TFT_DSI_INIT / TFT_RGB_INIT only seed it.
+//
+// The board names one of Arduino_GFX's tables (display/Arduino_DSI_Display.h,
+// display/Arduino_RGB_Display.h) or one of its own:
+//
+//   -D TFT_DSI_INIT=hi8561_init_operations
+//   -D TFT_RGB_INIT=gc9503v_type1_init_operations
+//
+// and switches at runtime with the macros below, which get the length unit
+// right -- DSI counts commands, RGB counts bytes.
+// ---------------------------------------------------------------------------
+#define TFT_SET_DSI_INIT(table)                                                                              \
+    do {                                                                                                     \
+        displayConfig.initOps = (table);                                                                     \
+        displayConfig.initOpsLen = sizeof(table) / sizeof(lcd_init_cmd_t);                                    \
+    } while (0)
+
+#define TFT_SET_RGB_INIT(table)                                                                              \
+    do {                                                                                                     \
+        displayConfig.initOps = (table);                                                                     \
+        displayConfig.initOpsLen = sizeof(table);                                                             \
+    } while (0)
+
+// Arduino_RGB_Display sends its init table over a separate SPI sideband, not
+// over the RGB bus, so a board with an RGB table has to hand it that bus too --
+// as an expression, e.g. -D TFT_RGB_INIT_BUS=new Arduino_SWSPI(-1,10,11,12,-1).
+// DSI needs none of this: its table goes out over the DSI link itself.
+#if !defined(TFT_RGB_INIT_BUS)
+    #define TFT_RGB_INIT_BUS nullptr
+    #if defined(TFT_RGB_INIT)
+        #error "TFT_RGB_INIT needs TFT_RGB_INIT_BUS: Arduino_RGB_Display sends the init table\n \
+        over a separate SPI sideband, and drops it silently when there is no bus to send it on."
+    #endif
+#endif
+
 #if !defined(TFT_DISPLAY_DRIVER_N)
     #error "Please define the Display Driver used by this board (TFT_DISPLAY_DRIVER_N):\n \
     [bus,rst,r,ips,w,h,ofs1,ofs2] 0-22\n \
@@ -183,113 +226,63 @@ class tft_logger;
     "
 #endif
 
-#if !defined(TFT_DISPLAY_DRIVER)
-    #if TFT_DISPLAY_DRIVER_N == 0
-        #define TFT_DISPLAY_DRIVER Arduino_ST7735
-    #elif TFT_DISPLAY_DRIVER_N == 1
-        #define TFT_DISPLAY_DRIVER Arduino_ST7789
-    #elif TFT_DISPLAY_DRIVER_N == 2
-        #define TFT_DISPLAY_DRIVER Arduino_ST7796
-    #elif TFT_DISPLAY_DRIVER_N == 3
-        #define TFT_DISPLAY_DRIVER Arduino_ST77916
-    #elif TFT_DISPLAY_DRIVER_N == 4
-        #define TFT_DISPLAY_DRIVER Arduino_ILI9341
-    #elif TFT_DISPLAY_DRIVER_N == 5
-        #define TFT_DISPLAY_DRIVER Arduino_GC9A01
-    #elif TFT_DISPLAY_DRIVER_N == 6
-        #define TFT_DISPLAY_DRIVER Arduino_GC9C01
-    #elif TFT_DISPLAY_DRIVER_N == 7
-        #define TFT_DISPLAY_DRIVER Arduino_GC9D01
-    #elif TFT_DISPLAY_DRIVER_N == 8
-        #define TFT_DISPLAY_DRIVER Arduino_GC9106
-    #elif TFT_DISPLAY_DRIVER_N == 9
-        #define TFT_DISPLAY_DRIVER Arduino_GC9107
-    #elif TFT_DISPLAY_DRIVER_N == 10
-        #define TFT_DISPLAY_DRIVER Arduino_HX8347C
-    #elif TFT_DISPLAY_DRIVER_N == 11
-        #define TFT_DISPLAY_DRIVER Arduino_HX8347D
-    #elif TFT_DISPLAY_DRIVER_N == 12
-        #define TFT_DISPLAY_DRIVER Arduino_HX8352C
-    #elif TFT_DISPLAY_DRIVER_N == 13
-        #define TFT_DISPLAY_DRIVER Arduino_HX8369A
-    #elif TFT_DISPLAY_DRIVER_N == 14
-        #define TFT_DISPLAY_DRIVER Arduino_NT35310
-    #elif TFT_DISPLAY_DRIVER_N == 15
-        #define TFT_DISPLAY_DRIVER Arduino_NT35510
-    #elif TFT_DISPLAY_DRIVER_N == 16
-        #define TFT_DISPLAY_DRIVER Arduino_NT39125
-    #elif TFT_DISPLAY_DRIVER_N == 17
-        #define TFT_DISPLAY_DRIVER Arduino_NV3007
-    #elif TFT_DISPLAY_DRIVER_N == 18
-        #define TFT_DISPLAY_DRIVER Arduino_NV3023
-    #elif TFT_DISPLAY_DRIVER_N == 19
-        #define TFT_DISPLAY_DRIVER Arduino_NV3041A
-    #elif TFT_DISPLAY_DRIVER_N == 20
-        #define TFT_DISPLAY_DRIVER Arduino_OTM8009A
-    #elif TFT_DISPLAY_DRIVER_N == 21
-        #define TFT_DISPLAY_DRIVER Arduino_JBT6K71
-    #elif TFT_DISPLAY_DRIVER_N == 22
-        #define TFT_DISPLAY_DRIVER Arduino_AXS15231B
-    #elif TFT_DISPLAY_DRIVER_N == 23
-        #define TFT_DISPLAY_DRIVER Arduino_ILI9331
-    #elif TFT_DISPLAY_DRIVER_N == 24
-        #define TFT_DISPLAY_DRIVER Arduino_ILI9342
-    #elif TFT_DISPLAY_DRIVER_N == 25
-        #define TFT_DISPLAY_DRIVER Arduino_ILI9481_18bit
-    #elif TFT_DISPLAY_DRIVER_N == 26
-        #define TFT_DISPLAY_DRIVER Arduino_ILI9486
-    #elif TFT_DISPLAY_DRIVER_N == 27
-        #define TFT_DISPLAY_DRIVER Arduino_ILI9486_18bit
-    #elif TFT_DISPLAY_DRIVER_N == 28
-        #define TFT_DISPLAY_DRIVER Arduino_ILI9488
-    #elif TFT_DISPLAY_DRIVER_N == 29
-        #define TFT_DISPLAY_DRIVER Arduino_ILI9488_18bit
-    #elif TFT_DISPLAY_DRIVER_N == 30
-        #define TFT_DISPLAY_DRIVER Arduino_ILI9488_3bit
-    #elif TFT_DISPLAY_DRIVER_N == 31
-        #define TFT_DISPLAY_DRIVER Arduino_ILI9806
-    #elif TFT_DISPLAY_DRIVER_N == 32
-        #define TFT_DISPLAY_DRIVER Arduino_HX8357A
-    #elif TFT_DISPLAY_DRIVER_N == 33
-        #define TFT_DISPLAY_DRIVER Arduino_HX8357B
-    #elif TFT_DISPLAY_DRIVER_N == 34
-        #define TFT_DISPLAY_DRIVER Arduino_R61529
-    #elif TFT_DISPLAY_DRIVER_N == 35
-        #define TFT_DISPLAY_DRIVER Arduino_RM67162
-    #elif TFT_DISPLAY_DRIVER_N == 36
-        #define TFT_DISPLAY_DRIVER Arduino_SSD1283A
-    #elif TFT_DISPLAY_DRIVER_N == 37
-        #define TFT_DISPLAY_DRIVER Arduino_SSD1331
-    #elif TFT_DISPLAY_DRIVER_N == 38
-        #define TFT_DISPLAY_DRIVER Arduino_SSD1351
-    #elif TFT_DISPLAY_DRIVER_N == 39
-        #define TFT_DISPLAY_DRIVER Arduino_SH8601
-    #elif TFT_DISPLAY_DRIVER_N == 40
-        #define TFT_DISPLAY_DRIVER Arduino_RM690B0
-    #elif TFT_DISPLAY_DRIVER_N == 41
-        #define TFT_DISPLAY_DRIVER Arduino_CO5300
-    #elif TFT_DISPLAY_DRIVER_N == 42
-        #define TFT_DISPLAY_DRIVER Arduino_JD9613
-    #elif TFT_DISPLAY_DRIVER_N == 43
-        #define TFT_DISPLAY_DRIVER Arduino_SEPS525
-    #elif TFT_DISPLAY_DRIVER_N == 44
-        #define TFT_DISPLAY_DRIVER Arduino_ILI9225
-    #elif TFT_DISPLAY_DRIVER_N == 45
-        #define TFT_DISPLAY_DRIVER Arduino_SPD2010
-    #elif TFT_DISPLAY_DRIVER_N == 46
-        #define TFT_DISPLAY_DRIVER Arduino_WEA2012
-    #elif TFT_DISPLAY_DRIVER_N == 47
-        #define TFT_DISPLAY_DRIVER Arduino_SSD1306
-    #elif TFT_DISPLAY_DRIVER_N == 48
-        #define TFT_DISPLAY_DRIVER Arduino_SH1106
-    #elif TFT_DISPLAY_DRIVER_N == 49
-        #define TFT_DISPLAY_DRIVER Arduino_RGB_Display
-    #elif TFT_DISPLAY_DRIVER_N == 50
-        #define TFT_DISPLAY_DRIVER Arduino_DSI_Display
-    #else
-        #error "Invalid TFT_DISPLAY_DRIVER_N"
+// The board may declare panels it can also come with, and pick between them at
+// boot by writing displayConfig.driver before begin(). Each id named here adds
+// one case to the factory in ardgfx.cpp and links that driver class in; a board
+// that declares none pays nothing.
+#if !defined(TFT_DISPLAY_DRIVER_N_ALT1) && defined(TFT_DISPLAY_DRIVER_N_ALT2)
+    #error "TFT_DISPLAY_DRIVER_N_ALT2 without _ALT1; the alternates are numbered in order"
+#endif
+#if !defined(TFT_DISPLAY_DRIVER_N_ALT2) && defined(TFT_DISPLAY_DRIVER_N_ALT3)
+    #error "TFT_DISPLAY_DRIVER_N_ALT3 without _ALT2; the alternates are numbered in order"
+#endif
+#if !defined(TFT_DISPLAY_DRIVER_N_ALT3) && defined(TFT_DISPLAY_DRIVER_N_ALT4)
+    #error "TFT_DISPLAY_DRIVER_N_ALT4 without _ALT3; the alternates are numbered in order"
+#endif
+
+// The factory builds every driver from displayConfig, and DisplayConfig.cpp
+// gives an unstated field a neutral default -- which is the wrong panel, not a
+// build error. So the macros the board's own driver group needs are still
+// checked here, against the primary id. Buses 1, 2 and 5 already demand the
+// full set above; this is what catches a half-described bus-0 board.
+#if TFT_DISPLAY_DRIVER_N == 44
+    #if !defined(TFT_RST) || !defined(TFT_ROTATION)
+        #error "Missing Macros definitions of: TFT_RST, TFT_ROTATION"
+    #endif
+#elif TFT_DISPLAY_DRIVER_N >= 45 && TFT_DISPLAY_DRIVER_N <= 46
+    #if !defined(TFT_RST)
+        #error "Missing Macros definitions of: TFT_RST"
+    #endif
+#elif TFT_DISPLAY_DRIVER_N >= 36 && TFT_DISPLAY_DRIVER_N <= 43
+    #if !defined(TFT_RST) || !defined(TFT_ROTATION) || !defined(TFT_WIDTH) || !defined(TFT_HEIGHT) ||         \
+        !defined(TFT_COL_OFS1) || !defined(TFT_ROW_OFS1) || !defined(TFT_COL_OFS2) || !defined(TFT_ROW_OFS2)
+        #error "Missing Macros definitions of: TFT_RST, TFT_ROTATION, TFT_WIDTH,\
+                TFT_HEIGHT, TFT_COL_OFS1, TFT_ROW_OFS1, TFT_COL_OFS2,TFT_ROW_OFS2 "
+    #endif
+#elif TFT_DISPLAY_DRIVER_N >= 23 && TFT_DISPLAY_DRIVER_N <= 35
+    #if !defined(TFT_RST) || !defined(TFT_ROTATION) || !defined(TFT_IPS)
+        #error "Missing Macros definitions of: TFT_RST, TFT_ROTATION, TFT_IPS"
+    #endif
+#elif TFT_DISPLAY_DRIVER_N <= 22
+    #if !defined(TFT_RST) || !defined(TFT_ROTATION) || !defined(TFT_IPS) || !defined(TFT_WIDTH) ||            \
+        !defined(TFT_HEIGHT) || !defined(TFT_COL_OFS1) || !defined(TFT_ROW_OFS1) || !defined(TFT_COL_OFS2) || \
+        !defined(TFT_ROW_OFS2)
+        #error "Missing Macros definitions of: TFT_RST, TFT_ROTATION, TFT_IPS, TFT_WIDTH,\
+                TFT_HEIGHT, TFT_COL_OFS1, TFT_ROW_OFS1, TFT_COL_OFS2,TFT_ROW_OFS2 "
     #endif
 #endif
+
+// Board-facing name for the concrete class of the board's primary panel, so
+// board code can static_cast<TFT_DISPLAY_DRIVER *>(tft.outputDriver()) and
+// reach calls the common API has no room for. An alias rather than a macro:
+// DD_DRV_CLASS is redefined once per driver the factory builds, so the name has
+// to be bound here, from the same table the factory uses.
+#define DD_DRV_ID TFT_DISPLAY_DRIVER_N
+#include "ardgfx_driver_class.inc"
+using TFT_DISPLAY_DRIVER = DD_DRV_CLASS;
+#undef DD_DRV_ID
+#undef DD_DRV_CLASS
+
 
 // ---------------------------------------------------------------------------
 // Canvas (USE_CANVAS)
@@ -316,13 +309,6 @@ class tft_logger;
             #define TFT_CANVAS_ROTATION 0
         #endif
     #endif
-    #if defined(TFT_CANVAS_ROTATE_OUTPUT)
-        #define TFT_DRIVER_ROTATION TFT_ROTATION
-    #else
-        #define TFT_DRIVER_ROTATION 0
-    #endif
-#else
-    #define TFT_DRIVER_ROTATION TFT_ROTATION
 #endif
 // clang-format on
 class tft_display {
@@ -457,6 +443,10 @@ private:
     void drawWideLineFallback(float ax, float ay, float bx, float by, float wd, uint32_t color);
 
     int16_t drawAlignedString(const String &s, int32_t x, int32_t y, uint8_t datum);
+
+    // Builds bus, driver and canvas from displayConfig. Idempotent; begin()
+    // calls it.
+    void buildDisplay();
 
     bool _swapBytes = false;
     uint32_t _textColor = 0xFFFF;

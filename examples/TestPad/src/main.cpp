@@ -231,7 +231,7 @@ static void backendApi() {
                   (void *)cfg.i2c.wire);
 
 #elif defined(USE_GXEPD2)
-    gxepd2_panel *panel = tft.native();
+    GxEPD2_GFX *panel = tft.native();
     Serial.printf("gxepd2 panel=%p\n", (void *)panel);
     // Powers the controller down; the next draw wakes it.
     tft.hibernate();

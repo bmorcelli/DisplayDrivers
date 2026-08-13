@@ -590,6 +590,63 @@ Driver: Arduino_DSI_Display. Needs `TFT_DATABUS_N 4` and `TFT_DSI_INIT`, naming 
 tables Arduino_GFX ships in `display/Arduino_DSI_Display.h` (`hi8561_init_operations`,
 `rm69a10_amoled_init_operations`, `jd9365_init_operations`, …).
 
+### Init tables, and swapping them at runtime (groups G and H)
+
+Groups G and H have no driver class of their own — the panel *is* the bus — so their register
+sequence arrives as a table rather than being baked into a class. On those two buses the table,
+the timings and the geometry are the *only* things separating one panel from another, which is why
+`displayConfig` carries a pointer to it:
+
+```c
+const void *initOps;    // DSI: const lcd_init_cmd_t *   RGB: const uint8_t *
+uint32_t    initOpsLen; // DSI: number of commands       RGB: number of bytes
+```
+
+`TFT_DSI_INIT` / `TFT_RGB_INIT` only seed it. Board code can aim it elsewhere before `begin()` —
+from `_setup_gpio()`, after probing whichever panel this unit shipped with — using the macros that
+get the length unit right:
+
+```c
+void _setup_gpio() {
+    if (isAmoledVariant()) {
+        TFT_SET_DSI_INIT(rm69a10_amoled_init_operations);
+        displayConfig.width  = 568;
+        displayConfig.height = 1232;
+        displayConfig.hsyncPulseWidth = 50;   // ...and the rest of the timings
+    }
+}
+```
+
+The pointer is `const void *` because this struct is compiled for every board and
+`lcd_init_cmd_t` only exists on the ESP32-P4.
+
+RGB only: `Arduino_RGB_Display` sends its table over a separate SPI sideband, not over the RGB bus,
+so a board with `TFT_RGB_INIT` must also give it that bus as an expression —
+`-D TFT_RGB_INIT_BUS=new Arduino_SWSPI(-1,10,11,12,-1)`. Without it the table would be dropped
+silently, so the build stops instead. DSI needs none of this: its table goes out over the DSI link.
+
+### More than one panel in one binary
+
+A board that shipped with different panels behind the same case can declare the alternates and
+pick between them at boot instead of needing one build per variant:
+
+```c
+#define TFT_DISPLAY_DRIVER_N      1   // primary: ST7789
+#define TFT_DISPLAY_DRIVER_N_ALT1 4   // also seen with an ILI9341
+#define TFT_DISPLAY_DRIVER_N_ALT2 5   // ...and a GC9A01
+```
+
+`_ALT1` through `_ALT4`, numbered in order. Board code writes the id it detected into
+`displayConfig.driver` before `begin()` — from `_setup_gpio()`, say, after reading the panel's ID
+register — and `begin()` builds that one. Everything else the driver needs comes from
+`displayConfig` too, so an alternate can differ in geometry and offsets as well as in controller.
+
+The data bus is *not* selectable this way: `TFT_DATABUS_N` stays a build-time choice. Nor are
+drivers 49 and 50, whose panel doubles as the bus.
+
+Each id declared links its driver class in, roughly 1 kB of flash apiece. Declaring none — which
+is every board that has only ever had one panel — costs 16 bytes.
+
 ### Canvas (`USE_CANVAS`)
 
 Draw into a full-screen RGB565 framebuffer and push it to the panel in one go on `display()`.
@@ -745,6 +802,33 @@ Optional macros:
 
 Each of `GXEPD2_CS`, `GXEPD2_DC`, `GXEPD2_BUSY` and `GXEPD2_RST` can be defined directly if the
 `TFT_*` names are already taken by something else on your board.
+
+### More than one panel in one binary
+
+E-paper boards change controller mid-production more often than most — the Xteink X4 shipped as
+SSD1677, then UC8179, then UC8279 behind the same glass and the same pinout. Declare the ones the
+board can come with and pick at boot:
+
+```c
+#define GXEPD2_PANEL      GxEPD2_it103                 // index 0
+#define GXEPD2_PANEL_ALT1 GxEPD2_426_GDEQ0426T82       // index 1
+#define GXEPD2_PANEL_ALT2 GxEPD2_X3_792x528            // index 2
+```
+
+`_ALT1` through `_ALT4`, numbered in order. Board code writes the index into
+`displayConfig.driver` before `begin()`; asking for one that was not declared leaves the display
+unbuilt rather than driving the glass with the wrong controller. Pins come from `displayConfig`
+either way, so an alternate can sit on a different pinout as well.
+
+`GXEPD2_PAGE_HEIGHT` left alone gives each panel its own full height. Setting it pins every panel
+to that many rows.
+
+`native()` returns the shared `GxEPD2_GFX *` base rather than one panel's class; cast it with
+`GXEPD2_PANEL_OF(GXEPD2_PANEL)` (or the `_ALTn` you selected) to reach anything panel-specific.
+
+Each panel declared costs about 5.7 kB of flash — GxEPD2 puts its whole implementation in the
+`GxEPD2_BW<>` template, so every panel gets its own copy. Declaring none costs nothing beyond the
+2.7 kB the shared base class costs every GxEPD2 board.
 
 ### Colours
 

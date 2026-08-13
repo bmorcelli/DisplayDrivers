@@ -5,7 +5,8 @@
 // Lilygo T-Display P4
 // DSI panel over Arduino_ESP32DSIPanel, 540x1168.
 //
-// Launcher env: lilygo-t-display-p4
+// Launcher env: lilygo-t-display-p4 -- seeded there, and swapped at runtime for
+// lilygo_t_display_p4_amoled.h when the boot probe finds the AMOLED variant.
 
 #ifndef DISPLAY_DEVICE_LILYGO_T_DISPLAY_P4_H
 #define DISPLAY_DEVICE_LILYGO_T_DISPLAY_P4_H

@@ -20,133 +20,99 @@ tft_display::tft_display(int16_t _W, int16_t _H) : _height(_H), _width(_W) {
     // Every RUN_ON_MUTEX() below takes this handle, so it has to exist before
     // the first draw call.
     if (tftMutex == nullptr) tftMutex = xSemaphoreCreateRecursiveMutex();
+}
+
+// Build the bus and the panel driver from displayConfig. Called from begin(),
+// not from the constructor, so a board's _setup_gpio() -- which runs after the
+// global tft is constructed and before begin() -- can probe its hardware and
+// retarget the panel first.
+void tft_display::buildDisplay() {
+    if (_gfx) return;
+    const DisplayConfig &cfg = displayConfig;
+
     // clang-format off
+#if defined(USE_CANVAS) && !defined(TFT_CANVAS_ROTATE_OUTPUT)
+    // The canvas owns the rotation; the driver stays unrotated. See ardgfx.h.
+    const uint8_t drvRot = 0;
+#else
+    const uint8_t drvRot = cfg.rotation;
+#endif
+    (void)drvRot;
+
 #if TFT_DATABUS_N == 3
+    // The RGB panel is the bus and the driver at once: Arduino_RGB_Display
+    // takes it in place of an Arduino_DataBus, so there is no driver class to
+    // select between and no factory below. What does vary between panels on
+    // this bus is the timings and the init table, and both are in cfg.
     #if TFT_DISPLAY_DRIVER_N != 49
         #error "TFT_DATABUS_N=3 requires TFT_DISPLAY_DRIVER_N=49 (Arduino_RGB_Display)"
     #endif
-    bus = new Arduino_ESP32RGBPanel( // TFT_DATABUS(
-        TFT_DE,
-        TFT_VSYNC,
-        TFT_HSYNC,
-        TFT_PCLK,
-        TFT_R0,
-        TFT_R1,
-        TFT_R2,
-        TFT_R3,
-        TFT_R4,
-        TFT_G0,
-        TFT_G1,
-        TFT_G2,
-        TFT_G3,
-        TFT_G4,
-        TFT_G5,
-        TFT_B0,
-        TFT_B1,
-        TFT_B2,
-        TFT_B3,
-        TFT_B4,
-        TFT_HSYNC_POL,
-        TFT_HSYNC_FRONT_PORCH,
-        TFT_HSYNC_PULSE_WIDTH,
-        TFT_HSYNC_BACK_PORCH,
-        TFT_VSYNC_POL,
-        TFT_VSYNC_FRONT_PORCH,
-        TFT_VSYNC_PULSE_WIDTH,
-        TFT_VSYNC_BACK_PORCH,
-        TFT_PCLK_ACTIVE_NEG,
-        TFT_PREF_SPEED
+    bus = new Arduino_ESP32RGBPanel(
+        cfg.de, cfg.vsync, cfg.hsync, cfg.pclk,
+        cfg.r[0], cfg.r[1], cfg.r[2], cfg.r[3], cfg.r[4],
+        cfg.g[0], cfg.g[1], cfg.g[2], cfg.g[3], cfg.g[4], cfg.g[5],
+        cfg.b[0], cfg.b[1], cfg.b[2], cfg.b[3], cfg.b[4],
+        cfg.hsyncPol, cfg.hsyncFrontPorch, cfg.hsyncPulseWidth, cfg.hsyncBackPorch,
+        cfg.vsyncPol, cfg.vsyncFrontPorch, cfg.vsyncPulseWidth, cfg.vsyncBackPorch,
+        cfg.pclkActiveNeg, cfg.prefSpeed
     );
-    #if !defined(TFT_WIDTH) || !defined(TFT_HEIGHT)
-        #error "Missing Macros definitions of: TFT_WIDTH, TFT_HEIGHT"
-    #endif
-    _gfx = new TFT_DISPLAY_DRIVER(TFT_WIDTH, TFT_HEIGHT, bus, 0, true);
-#endif
-#if TFT_DATABUS_N == 0
-    bus = new TFT_DATABUS(TFT_DC, TFT_CS, TFT_SCLK, TFT_MOSI, TFT_MISO, &SPI);
-#elif TFT_DATABUS_N == 1
-    bus = new TFT_DATABUS(TFT_CS, TFT_SCLK, TFT_D0, TFT_D1, TFT_D2, TFT_D3);
-#elif TFT_DATABUS_N == 2
-    bus = new TFT_DATABUS(
-        TFT_DC, TFT_CS, TFT_WR, TFT_RD, TFT_D0, TFT_D1, TFT_D2, TFT_D3, TFT_D4, TFT_D5, TFT_D6, TFT_D7
-    );
-#elif TFT_DATABUS_N== 4
-    bus = new TFT_DATABUS(TFT_HSYNC_PULSE_WIDTH, TFT_HSYNC_BACK_PORCH, TFT_HSYNC_FRONT_PORCH,
-                          TFT_VSYNC_PULSE_WIDTH, TFT_VSYNC_BACK_PORCH, TFT_VSYNC_FRONT_PORCH, TFT_PREF_SPEED);
-#elif TFT_DATABUS_N == 5
-    bus = new TFT_DATABUS(
-        TFT_DC, TFT_CS, TFT_WR, TFT_RD, TFT_D0, TFT_D1, TFT_D2, TFT_D3, TFT_D4, TFT_D5, TFT_D6, TFT_D7
-    );
-#endif
-#if TFT_DISPLAY_DRIVER_N == 49
-// Arduino_RGB_Display takes the panel as its bus and was already built next to
-// it above; falling through to the chain below would overwrite it.
-#elif TFT_DISPLAY_DRIVER_N == 50
-    #if !defined(TFT_RST) || !defined(TFT_WIDTH) || !defined(TFT_HEIGHT) || !defined(TFT_DSI_INIT)
-        #error "Missing Macros definitions of: TFT_RST, TFT_WIDTH, TFT_HEIGHT"
-    #endif
-    _gfx = new TFT_DISPLAY_DRIVER(TFT_WIDTH, TFT_HEIGHT, bus, 0, true, TFT_RST,
-                                  TFT_DSI_INIT, sizeof(TFT_DSI_INIT) / sizeof(lcd_init_cmd_t));
-#elif TFT_DISPLAY_DRIVER_N >= 47 && TFT_DISPLAY_DRIVER_N <= 48
-    #error "SSD1306 (47) and SH1106 (48) derive from Arduino_G, not Arduino_GFX: they are\n \
-    output sinks with no drawing API of their own, and have to be driven through an\n \
-    Arduino_Canvas_Mono. That canvas takes no rotation and uses verticalByte instead,\n \
-    so it does not fit the USE_CANVAS path here and is not wired up yet.\n \
-    Use the LovyanGFX backend (Panel_SSD1306 / Panel_SH1106) for these panels."
-#elif TFT_DISPLAY_DRIVER_N == 44
-    #if !defined(TFT_RST) || !defined(TFT_ROTATION)
-        #error "Missing Macros definitions of: TFT_RST, TFT_ROTATION"
-    #endif
-    _gfx = new TFT_DISPLAY_DRIVER(bus, TFT_RST, TFT_DRIVER_ROTATION);
-#elif TFT_DISPLAY_DRIVER_N >= 45 && TFT_DISPLAY_DRIVER_N <= 46
-    #if !defined(TFT_RST)
-        #error "Missing Macros definitions of: TFT_RST"
-    #endif
-    _gfx = new TFT_DISPLAY_DRIVER(bus, TFT_RST);
-#elif TFT_DISPLAY_DRIVER_N >= 36 && TFT_DISPLAY_DRIVER_N <= 43
-    #if !defined(TFT_RST) || !defined(TFT_ROTATION) || !defined(TFT_WIDTH) || !defined(TFT_HEIGHT) ||            \
-        !defined(TFT_COL_OFS1) || !defined(TFT_ROW_OFS1) || !defined(TFT_COL_OFS2) || !defined(TFT_ROW_OFS2)
-        #error "Missing Macros definitions of: TFT_RST, TFT_ROTATION, TFT_WIDTH,\
-                TFT_HEIGHT, TFT_COL_OFS1, TFT_ROW_OFS1, TFT_COL_OFS2,TFT_ROW_OFS2 "
-    #endif
+    // The init table goes out over an SPI sideband, so this driver also wants
+    // that bus; a board with an init table has to give it TFT_RGB_INIT_BUS.
     _gfx = new TFT_DISPLAY_DRIVER(
-        bus,
-        TFT_RST,
-        TFT_DRIVER_ROTATION,
-        TFT_WIDTH,
-        TFT_HEIGHT,
-        TFT_COL_OFS1,
-        TFT_ROW_OFS1,
-        TFT_COL_OFS2,
-        TFT_ROW_OFS2
+        cfg.width, cfg.height, bus, 0, true, TFT_RGB_INIT_BUS, cfg.rst,
+        static_cast<const uint8_t *>(cfg.initOps), cfg.initOpsLen
     );
-#elif TFT_DISPLAY_DRIVER_N == 35 && TFT_DATABUS_N == 0
-    // The RM67162 boots with a different register set over plain SPI than over
-    // QSPI; Arduino_GFX ships both tables and defaults to the QSPI one.
+#elif TFT_DATABUS_N == 4
+    // Same story as the RGB panel: the DSI panel is its own bus, so the only
+    // thing that separates one panel from another here is the timings and the
+    // init table -- which is why cfg carries a pointer to it.
+    #if TFT_DISPLAY_DRIVER_N != 50
+        #error "TFT_DATABUS_N=4 requires TFT_DISPLAY_DRIVER_N=50 (Arduino_DSI_Display)"
+    #endif
+    bus = new TFT_DATABUS(cfg.hsyncPulseWidth, cfg.hsyncBackPorch, cfg.hsyncFrontPorch,
+                          cfg.vsyncPulseWidth, cfg.vsyncBackPorch, cfg.vsyncFrontPorch, cfg.prefSpeed);
     _gfx = new TFT_DISPLAY_DRIVER(
-        bus, TFT_RST, TFT_DRIVER_ROTATION, TFT_IPS, rm67162_spi_init_operations, sizeof(rm67162_spi_init_operations)
+        cfg.width, cfg.height, bus, 0, true, cfg.rst,
+        static_cast<const lcd_init_cmd_t *>(cfg.initOps), cfg.initOpsLen
     );
-#elif TFT_DISPLAY_DRIVER_N >= 23 && TFT_DISPLAY_DRIVER_N <= 35
-        _gfx = new TFT_DISPLAY_DRIVER(bus, TFT_RST, TFT_DRIVER_ROTATION, TFT_IPS);
 #else
-    #if !defined(TFT_RST) || !defined(TFT_ROTATION) || !defined(TFT_IPS) || !defined(TFT_WIDTH) ||               \
-        !defined(TFT_HEIGHT) || !defined(TFT_COL_OFS1) || !defined(TFT_ROW_OFS1) || !defined(TFT_COL_OFS2) ||    \
-        !defined(TFT_ROW_OFS2)
-        #error "Missing Macros definitions of: TFT_RST, TFT_ROTATION, TFT_IPS, TFT_WIDTH,\
-                TFT_HEIGHT, TFT_COL_OFS1, TFT_ROW_OFS1, TFT_COL_OFS2,TFT_ROW_OFS2 "
-    #endif
-    _gfx = new TFT_DISPLAY_DRIVER(
-        bus,
-        TFT_RST,
-        TFT_DRIVER_ROTATION,
-        TFT_IPS,
-        TFT_WIDTH,
-        TFT_HEIGHT,
-        TFT_COL_OFS1,
-        TFT_ROW_OFS1,
-        TFT_COL_OFS2,
-        TFT_ROW_OFS2
+    #if TFT_DATABUS_N == 0
+    bus = new TFT_DATABUS(cfg.dc, cfg.cs, cfg.sclk, cfg.mosi, cfg.miso, &SPI);
+    #elif TFT_DATABUS_N == 1
+    bus = new TFT_DATABUS(cfg.cs, cfg.sclk, cfg.d[0], cfg.d[1], cfg.d[2], cfg.d[3]);
+    #elif TFT_DATABUS_N == 2 || TFT_DATABUS_N == 5
+    bus = new TFT_DATABUS(
+        cfg.dc, cfg.cs, cfg.wr, cfg.rd,
+        cfg.d[0], cfg.d[1], cfg.d[2], cfg.d[3], cfg.d[4], cfg.d[5], cfg.d[6], cfg.d[7]
     );
+    #endif
+
+    // One case per driver id the board declared. Boards that named no
+    // alternates get a switch with a single case.
+    switch (cfg.driver) {
+    #define DD_DRV_ID TFT_DISPLAY_DRIVER_N
+    #include "ardgfx_driver.inc"
+    #if defined(TFT_DISPLAY_DRIVER_N_ALT1)
+        #define DD_DRV_ID TFT_DISPLAY_DRIVER_N_ALT1
+        #include "ardgfx_driver.inc"
+    #endif
+    #if defined(TFT_DISPLAY_DRIVER_N_ALT2)
+        #define DD_DRV_ID TFT_DISPLAY_DRIVER_N_ALT2
+        #include "ardgfx_driver.inc"
+    #endif
+    #if defined(TFT_DISPLAY_DRIVER_N_ALT3)
+        #define DD_DRV_ID TFT_DISPLAY_DRIVER_N_ALT3
+        #include "ardgfx_driver.inc"
+    #endif
+    #if defined(TFT_DISPLAY_DRIVER_N_ALT4)
+        #define DD_DRV_ID TFT_DISPLAY_DRIVER_N_ALT4
+        #include "ardgfx_driver.inc"
+    #endif
+    default:
+        // Asked for a driver this binary was not built with. Leave the display
+        // unbuilt rather than guess; every draw call below is null-guarded.
+        return;
+    }
 #endif
 
 #if defined(USE_CANVAS)
@@ -155,18 +121,20 @@ tft_display::tft_display(int16_t _W, int16_t _H) : _height(_H), _width(_W) {
     _output = _gfx;
     #if defined(TFT_CANVAS_ROTATE_OUTPUT)
     _gfx = new Arduino_Canvas(
-        (TFT_CANVAS_ROTATION & 1) ? TFT_HEIGHT : TFT_WIDTH,
-        (TFT_CANVAS_ROTATION & 1) ? TFT_WIDTH : TFT_HEIGHT,
+        (TFT_CANVAS_ROTATION & 1) ? cfg.height : cfg.width,
+        (TFT_CANVAS_ROTATION & 1) ? cfg.width : cfg.height,
         _output, 0, 0, 0
     );
     #else
-    _gfx = new Arduino_Canvas(TFT_WIDTH, TFT_HEIGHT, _output, 0, 0, TFT_CANVAS_ROTATION);
+    _gfx = new Arduino_Canvas(cfg.width, cfg.height, _output, 0, 0, TFT_CANVAS_ROTATION);
     #endif
 #endif
 }
 // clang-format on
+
 void tft_display::begin(uint32_t speed) {
     (void)speed;
+    buildDisplay();
     if (_gfx) {
         _gfx->begin();
         _width = _gfx->width();

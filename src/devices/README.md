@@ -99,7 +99,7 @@ panel share a profile, so the last column is where you look for your own device 
 | `DISPLAY_DEVICE_LILYGO_T_DECK_PRO` | GxEPD2 | — | 240x320 | lilygo-t-deck-pro |
 | `DISPLAY_DEVICE_LILYGO_T_DISPLAY_C5` | ST7789 | SPI | 170x320 | lilygo-t-display-c5 |
 | `DISPLAY_DEVICE_LILYGO_T_DISPLAY_P4` | DSI | DSI | 540x1168 | lilygo-t-display-p4 |
-| `DISPLAY_DEVICE_LILYGO_T_DISPLAY_P4_AMOLED` | DSI | DSI | 568x1232 | lilygo-t-display-p4-amoled |
+| `DISPLAY_DEVICE_LILYGO_T_DISPLAY_P4_AMOLED` | DSI | DSI | 568x1232 | lilygo-t-display-p4 (probed) |
 | `DISPLAY_DEVICE_LILYGO_T_DISPLAY_S3_AMOLED` | RM67162 | QSPI | 240x536 | lilygo-t-display-S3-amoled |
 | `DISPLAY_DEVICE_LILYGO_T_DISPLAY_S3_AMOLED_PLUS` | RM67162 | SPI | 240x536 | lilygo-t-display-S3-amoled-plus |
 | `DISPLAY_DEVICE_LILYGO_T_DISPLAY_S3_PRO` | ST7796 | SPI | 222x480 | lilygo-t-display-S3-pro |

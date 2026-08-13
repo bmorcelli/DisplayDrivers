@@ -12,6 +12,18 @@
 
 #if defined(USE_GXEPD2)
 
+// GxEPD2_BW is a template over its panel class, so a binary that can drive more
+// than one panel needs a common base to hold them in. GxEPD2 has one --
+// GxEPD2_GFX -- but only builds it when asked. Turning it on costs 2.7 kB of
+// flash once (vtable and thunks for its ~35 virtuals), no RAM, and nothing per
+// panel; the alternative, a leaner base of our own, would have to redeclare the
+// same surface to save a fraction of that.
+//
+// Safe against ODR trouble: everything the macro changes lives in the GxEPD2_BW
+// template, which is header-only and only ever instantiated here. GxEPD2's one
+// compiled unit, GxEPD2_EPD.cpp, does not read it.
+#define ENABLE_GxEPD2_GFX 1
+
 #include <GxEPD2_BW.h>
 #include <SPI.h>
 
@@ -25,19 +37,49 @@
 #include "swsprite.h"
 #include "tft_defines.h"
 
+// Panels this library carries itself, for glass GxEPD2 has no class for. They
+// are ordinary GxEPD2 panel classes, so GXEPD2_PANEL names them exactly like a
+// stock one.
+#include "../panels/GxEPD2_X3_792x528.h"
+
 // clang-format off
 // ---------------------------------------------------------------------------
 // Panel selection
 // ---------------------------------------------------------------------------
 #if !defined(GXEPD2_PANEL)
     #error "Please define GXEPD2_PANEL with the GxEPD2 panel class of this board,\n \
-    e.g. -DGXEPD2_PANEL=GxEPD2_310_GDEQ031T10 . The full list lives in the epd/\n \
-    folder of the GxEPD2 library; only black/white panels are wired up here."
+    e.g. -DGXEPD2_PANEL=GxEPD2_310_GDEQ031T10 . The list of stock ones lives in\n \
+    the epd/ folder of the GxEPD2 library, and this library adds a few of its own\n \
+    under src/panels/; only black/white panels are wired up here."
+#endif
+
+// Panels the board can also come with. The Xteink X4 shipped as SSD1677, then
+// UC8179, then UC8279 behind the same case and the same pinout, so one binary
+// that picks at boot beats three builds. Board code writes the index into
+// displayConfig.driver before begin(): 0 is GXEPD2_PANEL, 1 is _ALT1, and so on.
+// Each one declared links its panel class in; declaring none costs nothing.
+#if !defined(GXEPD2_PANEL_ALT1) && defined(GXEPD2_PANEL_ALT2)
+    #error "GXEPD2_PANEL_ALT2 without GXEPD2_PANEL_ALT1; the alternates are numbered in order"
+#endif
+#if !defined(GXEPD2_PANEL_ALT2) && defined(GXEPD2_PANEL_ALT3)
+    #error "GXEPD2_PANEL_ALT3 without GXEPD2_PANEL_ALT2; the alternates are numbered in order"
+#endif
+#if !defined(GXEPD2_PANEL_ALT3) && defined(GXEPD2_PANEL_ALT4)
+    #error "GXEPD2_PANEL_ALT4 without GXEPD2_PANEL_ALT3; the alternates are numbered in order"
 #endif
 
 // Rows kept in RAM. The default holds the whole panel, which is what every
 // board in this project can afford; drop it to page the panel in bands.
-#if !defined(GXEPD2_PAGE_HEIGHT)
+//
+// A board that states it pins every panel to that height; left alone, each
+// panel gets its own full height, which is what the alternates want -- they are
+// usually the same glass behind a different controller, but nothing guarantees
+// their HEIGHT constants agree.
+#if defined(GXEPD2_PAGE_HEIGHT)
+    #define GXEPD2_PANEL_OF(cls) gxepd2_panel<cls, GXEPD2_PAGE_HEIGHT>
+#else
+    #define GXEPD2_PANEL_OF(cls) gxepd2_panel<cls>
+    // Only so DisplayConfig.cpp can record what the primary came up with.
     #define GXEPD2_PAGE_HEIGHT GXEPD2_PANEL::HEIGHT
 #endif
 
@@ -113,31 +155,10 @@
 #endif
 // clang-format on
 
-// GxEPD2 panel bound to this board, with every drawing primitive routed
-// through a dithering drawPixel so the launcher's RGB565 palette survives on a
-// 1bpp panel.
-class gxepd2_panel : public GxEPD2_BW<GXEPD2_PANEL, GXEPD2_PAGE_HEIGHT> {
-    typedef GxEPD2_BW<GXEPD2_PANEL, GXEPD2_PAGE_HEIGHT> Base;
-
-public:
-    gxepd2_panel() : Base(GXEPD2_PANEL(GXEPD2_CS, GXEPD2_DC, GXEPD2_RST, GXEPD2_BUSY)) {}
-
-    void drawPixel(int16_t x, int16_t y, uint16_t color) override {
-        Base::drawPixel(x, y, ditherColor(x, y, color));
-    }
-
-    // Base::fillScreen memsets the buffer and treats anything non-zero as
-    // white, which would flatten every mid tone; dither those by hand.
-    void fillScreen(uint16_t color) override {
-        if (color == GxEPD_BLACK || color == GxEPD_WHITE) {
-            Base::fillScreen(color);
-            return;
-        }
-        for (int16_t py = 0; py < height(); ++py) {
-            for (int16_t px = 0; px < width(); ++px) { drawPixel(px, py, color); }
-        }
-    }
-
+// Reducing the launcher's RGB565 palette to the panel's two levels. Kept off
+// the panel class: callers dither text colours whether or not a panel exists,
+// and there is nothing per-panel about the arithmetic.
+struct gxepd2_dither {
     static uint8_t rgb565ToLuma(uint16_t color) {
         const uint16_t r = ((color >> 11) & 0x1F) * 255U / 31U;
         const uint16_t g = ((color >> 5) & 0x3F) * 255U / 63U;
@@ -161,6 +182,37 @@ public:
         const uint8_t threshold = 128;
 #endif
         return (luma > threshold) ? GxEPD_WHITE : GxEPD_BLACK;
+    }
+};
+
+// One GxEPD2 panel class, with every drawing primitive routed through a
+// dithering drawPixel so the launcher's RGB565 palette survives on 1bpp glass.
+// A template, because the panel is chosen at boot: the backend holds whichever
+// instantiation the board asked for through their shared GxEPD2_GFX base.
+template <typename PANEL, uint16_t PAGE_H = PANEL::HEIGHT>
+class gxepd2_panel : public GxEPD2_BW<PANEL, PAGE_H> {
+    typedef GxEPD2_BW<PANEL, PAGE_H> Base;
+
+public:
+    // Pins come from displayConfig, not from the macros, so a board can probe
+    // its hardware and retarget the panel before begin() builds this.
+    gxepd2_panel(int16_t cs, int16_t dc, int16_t rst, int16_t busy)
+        : Base(PANEL(cs, dc, rst, busy)) {}
+
+    void drawPixel(int16_t x, int16_t y, uint16_t color) override {
+        Base::drawPixel(x, y, gxepd2_dither::ditherColor(x, y, color));
+    }
+
+    // Base::fillScreen memsets the buffer and treats anything non-zero as
+    // white, which would flatten every mid tone; dither those by hand.
+    void fillScreen(uint16_t color) override {
+        if (color == GxEPD_BLACK || color == GxEPD_WHITE) {
+            Base::fillScreen(color);
+            return;
+        }
+        for (int16_t py = 0; py < this->height(); ++py) {
+            for (int16_t px = 0; px < this->width(); ++px) { drawPixel(px, py, color); }
+        }
     }
 };
 
@@ -252,7 +304,10 @@ public:
     uint8_t getTextSize() const;
     uint8_t getRotation() const;
     int16_t fontHeight(int16_t font = 1) const;
-    gxepd2_panel *native();
+    // The panel, through the base every gxepd2_panel<> shares. Cast it to
+    // GXEPD2_PANEL_OF(GXEPD2_PANEL) (or the _ALTn the board selected) to reach
+    // anything specific to one panel class.
+    GxEPD2_GFX *native();
 
     // --- e-paper specific -------------------------------------------------
     // Flush the buffer to the panel. A full (flashing) refresh is used when
@@ -279,7 +334,7 @@ private:
 
     int16_t drawAlignedString(const String &s, int32_t x, int32_t y, uint8_t datum);
 
-    gxepd2_panel *_gfx = nullptr;
+    GxEPD2_GFX *_gfx = nullptr;
     bool _needsFullRefresh = true;
     uint16_t _height = TFT_HEIGHT;
     uint16_t _width = TFT_WIDTH;

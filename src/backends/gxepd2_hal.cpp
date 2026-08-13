@@ -10,7 +10,10 @@
 
 #if defined(USE_GXEPD2)
 
-tft_display::tft_display(int16_t _W, int16_t _H) : _height(_H), _width(_W) { _gfx = new gxepd2_panel(); }
+// The panel is built in begin(), not here: everything that describes it lives
+// in displayConfig, and the point of that struct is that a board gets to change
+// it — after the display object exists, before it is brought up.
+tft_display::tft_display(int16_t _W, int16_t _H) : _height(_H), _width(_W) {}
 
 tft_display::~tft_display() {
     delete _gfx;
@@ -19,11 +22,51 @@ tft_display::~tft_display() {
 
 void tft_display::begin(uint32_t speed) {
     (void)speed;
-    if (!_gfx) return;
-#if defined(GXEPD2_BEGIN_SPI)
-    SPI.begin(TFT_SCLK, TFT_MISO, TFT_MOSI, GXEPD2_CS);
+    if (!_gfx) {
+        const int16_t cs = displayConfig.cs;
+        const int16_t dc = displayConfig.dc;
+        const int16_t rst = displayConfig.rst;
+        const int16_t busy = displayConfig.busy;
+        // clang-format off
+        switch (displayConfig.driver) {
+        case 0:
+            _gfx = new GXEPD2_PANEL_OF(GXEPD2_PANEL)(cs, dc, rst, busy);
+            break;
+#if defined(GXEPD2_PANEL_ALT1)
+        case 1:
+            _gfx = new GXEPD2_PANEL_OF(GXEPD2_PANEL_ALT1)(cs, dc, rst, busy);
+            break;
 #endif
-    _gfx->init(GXEPD2_DIAG_BAUD, GXEPD2_INITIAL, GXEPD2_RESET_DURATION, GXEPD2_PULLDOWN_RST);
+#if defined(GXEPD2_PANEL_ALT2)
+        case 2:
+            _gfx = new GXEPD2_PANEL_OF(GXEPD2_PANEL_ALT2)(cs, dc, rst, busy);
+            break;
+#endif
+#if defined(GXEPD2_PANEL_ALT3)
+        case 3:
+            _gfx = new GXEPD2_PANEL_OF(GXEPD2_PANEL_ALT3)(cs, dc, rst, busy);
+            break;
+#endif
+#if defined(GXEPD2_PANEL_ALT4)
+        case 4:
+            _gfx = new GXEPD2_PANEL_OF(GXEPD2_PANEL_ALT4)(cs, dc, rst, busy);
+            break;
+#endif
+        default:
+            // Asked for a panel this binary was not built with. Leave the
+            // display unbuilt rather than drive the glass with the wrong
+            // controller; every call below is null-guarded.
+            return;
+        }
+        // clang-format on
+    }
+    if (!_gfx) return;
+    if (displayConfig.beginSpi) {
+        SPI.begin(displayConfig.sclk, displayConfig.miso, displayConfig.mosi, displayConfig.cs);
+    }
+    _gfx->init(
+        GXEPD2_DIAG_BAUD, GXEPD2_INITIAL, displayConfig.resetDuration, displayConfig.pulldownRst
+    );
     _gfx->setFullWindow();
     _needsFullRefresh = true;
     _width = _gfx->width();
@@ -100,7 +143,7 @@ void tft_display::fillScreen(uint32_t color) {
     // Repainting everything means the next flush has to be a full refresh, or
     // the ghost of the previous screen stays on the panel.
     _needsFullRefresh = true;
-    _gfx->fillScreen(color);
+    if (_gfx) _gfx->fillScreen(color);
 }
 
 void tft_display::drawRoundRect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t r, uint32_t color) {
@@ -313,7 +356,7 @@ void tft_display::setTextSize(uint8_t s) {
 
 void tft_display::setTextColor(uint16_t c) {
     _textColor = c;
-    if (_gfx) _gfx->setTextColor(gxepd2_panel::ditherColor(0, 0, c));
+    if (_gfx) _gfx->setTextColor(gxepd2_dither::ditherColor(0, 0, c));
 }
 
 void tft_display::setTextColor(uint16_t c, uint16_t b, bool bgfill) {
@@ -322,7 +365,7 @@ void tft_display::setTextColor(uint16_t c, uint16_t b, bool bgfill) {
     _textBgColor = b;
     // Text is rendered glyph by glyph, so a per-pixel dither would smear the
     // characters; pick the nearest of the two panel levels instead.
-    if (_gfx) _gfx->setTextColor(gxepd2_panel::ditherColor(0, 0, c), gxepd2_panel::ditherColor(0, 0, b));
+    if (_gfx) _gfx->setTextColor(gxepd2_dither::ditherColor(0, 0, c), gxepd2_dither::ditherColor(0, 0, b));
 }
 
 void tft_display::setTextDatum(uint8_t d) { _textDatum = d; }
@@ -438,6 +481,6 @@ int16_t tft_display::fontHeight(int16_t font) const {
     return static_cast<int16_t>(_textSize * 8);
 }
 
-gxepd2_panel *tft_display::native() { return _gfx; }
+GxEPD2_GFX *tft_display::native() { return _gfx; }
 
 #endif

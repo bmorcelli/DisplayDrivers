@@ -5,7 +5,10 @@
 // Lilygo T-Display P4
 // DSI panel over Arduino_ESP32DSIPanel, 568x1232.
 //
-// Launcher env: lilygo-t-display-p4-amoled
+// Launcher env: lilygo-t-display-p4 -- the Launcher builds one binary for both
+// P4 panels and probes at boot, so it seeds the IPS profile and rewrites
+// displayConfig for this one. Pick this profile directly when you are building
+// for a unit you already know is the AMOLED.
 
 #ifndef DISPLAY_DEVICE_LILYGO_T_DISPLAY_P4_AMOLED_H
 #define DISPLAY_DEVICE_LILYGO_T_DISPLAY_P4_AMOLED_H

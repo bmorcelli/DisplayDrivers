@@ -57,6 +57,11 @@ class TFT_eSPI;
 class tft_sprite;
 class tft_logger;
 #include <SPI.h>
+
+// The mutable description of the panel, seeded from the macros above. Backends
+// read it in begin(), so anything running before that can retarget the display.
+#include "DisplayConfig.h"
+
 #if defined(USE_DUMMY_TFT)
 #include "backends/dummy.h"
 
