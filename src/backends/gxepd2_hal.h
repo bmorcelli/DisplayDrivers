@@ -41,6 +41,9 @@
 // are ordinary GxEPD2 panel classes, so GXEPD2_PANEL names them exactly like a
 // stock one.
 #include "../panels/GxEPD2_X3_792x528.h"
+#include "../panels/GxEPD2_X3_792x528_UC8279.h"
+#include "../panels/GxEPD2_X4_800x480_UC8179.h"
+#include "../panels/GxEPD2_X4_800x480_UC8279.h"
 
 // clang-format off
 // ---------------------------------------------------------------------------

@@ -828,7 +828,34 @@ to that many rows.
 
 Each panel declared costs about 5.7 kB of flash — GxEPD2 puts its whole implementation in the
 `GxEPD2_BW<>` template, so every panel gets its own copy. Declaring none costs nothing beyond the
-2.7 kB the shared base class costs every GxEPD2 board.
+2.7 kB the shared base class costs every GxEPD2 board. Panels that share one of this library's own
+base classes (the Xteink group below) come in nearer 3.8 kB.
+
+### Panels this library carries itself
+
+Glass GxEPD2 has no class for, in `src/panels/`. They are ordinary GxEPD2 panel classes, so
+`GXEPD2_PANEL` and the `_ALT`s name them exactly like a stock one.
+
+| Class | Controller | Size | Where |
+|---|---|---|---|
+| `GxEPD2_X3_792x528` | UC8253 | 792x528 | Xteink X3, original batch |
+| `GxEPD2_X3_792x528_UC8279` | UC8279d | 792x528 | Xteink X3, batches from July 2026 |
+| `GxEPD2_X4_800x480_UC8179` | UC8179 | 800x480 | Xteink X4 / X4 Pro, newer batches |
+| `GxEPD2_X4_800x480_UC8279` | UC8279 | 800x480 | Xteink X4 / X4 Pro, newer batches |
+
+The X4's original batch is an SSD1677 and uses GxEPD2's stock `GxEPD2_426_GDEQ0426T82`.
+
+All four are UltraChip parts driven in KW mode and the last three share `GxEPD2_Xteink_UC`, which
+carries the GxEPD2 boilerplate and the deferred plane write; a subclass supplies only its register
+bring-up and its refresh. Three of them differ enough that using the wrong one leaves the panel
+dark rather than merely wrong: the UC8179 needs an explicit booster/VCOM bring-up the SSD1677 path
+never sends, the UC8279 offsets its visible rows by 120 gates and writes no CDI, and the UC8279d
+ships a blank MTP so the host has to supply the drive rails and upload the waveform banks itself.
+
+Which controller a unit carries is not knowable at build time — it is read from the controller's
+VER register (0x70) at boot. **None of the three new classes has been tested on hardware.** They
+are transcriptions of the [FreeInk SDK](https://github.com/Free-Ink/freeink-sdk) drivers, which
+are themselves marked pending validation.
 
 ### Colours
 
