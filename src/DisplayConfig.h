@@ -88,6 +88,8 @@ struct DisplayConfig {
     uint16_t hsyncFrontPorch, hsyncPulseWidth, hsyncBackPorch;
     uint16_t vsyncFrontPorch, vsyncPulseWidth, vsyncBackPorch;
     uint32_t prefSpeed;
+    uint32_t dsiLaneBitRate; // Mbps per lane. 0 lets the backend use its own default.
+    uint32_t rgbBounceBufPx; // RGB bus only. 0 disables it (Arduino_ESP32RGBPanel's own default).
 
     // Register dump the panel wants before it will show anything. RGB and DSI
     // panels are the two that need one, and they disagree on both the element

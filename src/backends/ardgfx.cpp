@@ -54,7 +54,8 @@ void tft_display::buildDisplay() {
         cfg.b[0], cfg.b[1], cfg.b[2], cfg.b[3], cfg.b[4],
         cfg.hsyncPol, cfg.hsyncFrontPorch, cfg.hsyncPulseWidth, cfg.hsyncBackPorch,
         cfg.vsyncPol, cfg.vsyncFrontPorch, cfg.vsyncPulseWidth, cfg.vsyncBackPorch,
-        cfg.pclkActiveNeg, cfg.prefSpeed
+        cfg.pclkActiveNeg, cfg.prefSpeed,
+        false, 0, 0, cfg.rgbBounceBufPx
     );
     // The init table goes out over an SPI sideband, so this driver also wants
     // that bus; a board with an init table has to give it TFT_RGB_INIT_BUS.
@@ -69,8 +70,11 @@ void tft_display::buildDisplay() {
     #if TFT_DISPLAY_DRIVER_N != 50
         #error "TFT_DATABUS_N=4 requires TFT_DISPLAY_DRIVER_N=50 (Arduino_DSI_Display)"
     #endif
-    bus = new TFT_DATABUS(cfg.hsyncPulseWidth, cfg.hsyncBackPorch, cfg.hsyncFrontPorch,
-                          cfg.vsyncPulseWidth, cfg.vsyncBackPorch, cfg.vsyncFrontPorch, cfg.prefSpeed);
+    bus = new TFT_DATABUS(
+        cfg.hsyncPulseWidth, cfg.hsyncBackPorch, cfg.hsyncFrontPorch, cfg.vsyncPulseWidth, cfg.vsyncBackPorch,
+        cfg.vsyncFrontPorch, cfg.prefSpeed,
+        cfg.dsiLaneBitRate ? cfg.dsiLaneBitRate : DEFAULT_MIPI_DSI_LANE_BIT_RATE_MBPS
+    );
     _gfx = new TFT_DISPLAY_DRIVER(
         cfg.width, cfg.height, bus, 0, true, cfg.rst,
         static_cast<const lcd_init_cmd_t *>(cfg.initOps), cfg.initOpsLen

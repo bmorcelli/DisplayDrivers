@@ -236,6 +236,14 @@
 #ifndef TFT_VSYNC_BACK_PORCH
     #define TFT_VSYNC_BACK_PORCH 0
 #endif
+#ifndef TFT_DSI_LANE_BIT_RATE
+    #define TFT_DSI_LANE_BIT_RATE 0
+#endif
+
+#ifndef TFT_RGB_BOUNCE_BUF_PX
+    #define TFT_RGB_BOUNCE_BUF_PX 0
+#endif
+
 #ifndef TFT_PREF_SPEED
     #define TFT_PREF_SPEED 0
 #endif
@@ -379,6 +387,8 @@ DisplayConfig displayConfig = {
     /* vPulse     */ (uint16_t)TFT_VSYNC_PULSE_WIDTH,
     /* vBack      */ (uint16_t)TFT_VSYNC_BACK_PORCH,
     /* prefSpeed  */ (uint32_t)TFT_PREF_SPEED,
+    /* dsiLaneBitRate */ (uint32_t)TFT_DSI_LANE_BIT_RATE,
+    /* rgbBounceBufPx */ (uint32_t)TFT_RGB_BOUNCE_BUF_PX,
     /* initOps    */ DD_INIT_OPS,
     /* initOpsLen */ (uint32_t)DD_INIT_OPS_LEN,
 
