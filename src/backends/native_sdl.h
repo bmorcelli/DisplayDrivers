@@ -180,7 +180,15 @@ template <> struct Converter<String> {
 // The public tft_display API returns SPIClass& on every backend so portable
 // code can call getSPIinstance() unconditionally. Nothing here ever talks to
 // real SPI hardware, so an empty type is enough to satisfy the signature.
-class SPIClass {};
+class SPIClass {
+public:
+    void begin(int sck = -1, int miso = -1, int mosi = -1, int cs = -1) {
+        (void)sck;
+        (void)miso;
+        (void)mosi;
+        (void)cs;
+    }
+};
 
 class tft_sprite;
 class tft_logger;
