@@ -40,10 +40,12 @@
 // #define USE_EPD_PAINTER 1  // parallel e-paper
 // #define USE_GXEPD2      1  // SPI e-paper  (GPL-3.0, see the Licensing section)
 // #define USE_DUMMY_TFT   1  // no panel at all, every draw call is a no-op
+// #define USE_NATIVE_SDL  1  // desktop SDL2 window, PlatformIO `platform = native` only
+//                            // (no Arduino core — see examples/NativeUI)
 
 // Selected here so the device profiles below can branch on it. DisplayDrivers.h
 // makes the same choice; doing it early only moves it in front of the profiles.
-#if !defined(USE_ARDUINO_GFX) && !defined(USE_LOVYANGFX) && !defined(USE_TFT_ESPI) && !defined(USE_M5GFX) && !defined(USE_EPD_PAINTER) && !defined(USE_GXEPD2) && !defined(USE_DUMMY_TFT)
+#if !defined(USE_ARDUINO_GFX) && !defined(USE_LOVYANGFX) && !defined(USE_TFT_ESPI) && !defined(USE_M5GFX) && !defined(USE_EPD_PAINTER) && !defined(USE_GXEPD2) && !defined(USE_NATIVE_SDL) && !defined(USE_DUMMY_TFT)
     #define USE_ARDUINO_GFX 1
 #endif
 

@@ -32,7 +32,12 @@
 #endif
 #endif
 
+// USE_NATIVE_SDL targets PlatformIO's `platform = native`, which has no
+// Arduino core at all — pins_arduino.h does not exist there, and that
+// backend brings its own String/SPIClass instead of SPI.h's.
+#if !defined(USE_NATIVE_SDL)
 #include <pins_arduino.h>
+#endif
 
 // USE_DUMMY_TFT wins over any panel flag the build inherited: a board that says
 // it has no display has no display. Every backend .cpp includes this header
@@ -45,18 +50,21 @@
 #undef USE_M5GFX
 #undef USE_EPD_PAINTER
 #undef USE_GXEPD2
+#undef USE_NATIVE_SDL
 #undef USE_CANVAS
 #endif
 
 #if !defined(USE_ARDUINO_GFX) && !defined(USE_LOVYANGFX) && !defined(USE_TFT_ESPI) && !defined(USE_M5GFX) &&  \
-    !defined(USE_EPD_PAINTER) && !defined(USE_GXEPD2) && !defined(USE_DUMMY_TFT)
+    !defined(USE_EPD_PAINTER) && !defined(USE_GXEPD2) && !defined(USE_NATIVE_SDL) && !defined(USE_DUMMY_TFT)
 #define USE_ARDUINO_GFX
 #endif
 
+#if !defined(USE_NATIVE_SDL)
 class TFT_eSPI;
 class tft_sprite;
 class tft_logger;
 #include <SPI.h>
+#endif
 
 // The mutable description of the panel, seeded from the macros above. Backends
 // read it in begin(), so anything running before that can retarget the display.
@@ -79,6 +87,9 @@ class tft_logger;
 
 #elif defined(USE_M5GFX)
 #include "backends/m5gfx_hal.h"
+
+#elif defined(USE_NATIVE_SDL)
+#include "backends/native_sdl.h"
 
 #elif defined(USE_ARDUINO_GFX)
 #include "backends/ardgfx.h"

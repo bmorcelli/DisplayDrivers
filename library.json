@@ -26,10 +26,12 @@
   "headers": "DisplayDrivers.h",
   "frameworks": [
     "arduino",
-    "espidf"
+    "espidf",
+    "*"
   ],
   "platforms": [
-    "espressif32"
+    "espressif32",
+    "native"
   ],
   "build": {
     "libArchive": false
