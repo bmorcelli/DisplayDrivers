@@ -460,7 +460,7 @@ private:
 class tft_sprite {
 public:
     explicit tft_sprite(tft_display *parent);
-    ~tft_sprite() = default;
+    ~tft_sprite();
 
     void *createSprite(int16_t w, int16_t h, uint8_t frames = 1);
     void deleteSprite();
@@ -508,6 +508,8 @@ public:
     int16_t drawString(const String &string, int32_t x, int32_t y, uint8_t font = 1);
 
 private:
+    class SpriteGFX;
+
     bool _hasBuffer() const;
 
     void setPixel(int32_t x, int32_t y, uint16_t color);
@@ -515,6 +517,7 @@ private:
     void drawHLine(int32_t x, int32_t y, int32_t w, uint16_t color);
 
     tft_display *_display = nullptr;
+    SpriteGFX *_renderer = nullptr;
     int16_t _width = 0;
     int16_t _height = 0;
     std::vector<uint16_t> _buffer;
@@ -523,6 +526,7 @@ private:
     int16_t _cursorY = 0;
     uint32_t _textColor = TFT_WHITE;
     uint32_t _textBgColor = TFT_BLACK;
+    bool _textBgFill = false;
     uint8_t _textSize = 1;
     uint8_t _textDatum = 0;
 };

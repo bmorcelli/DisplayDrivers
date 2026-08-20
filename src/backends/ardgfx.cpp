@@ -524,18 +524,76 @@ int16_t tft_display::drawAlignedString(const String &s, int32_t x, int32_t y, ui
     return w;
 }
 
+// Lightweight Arduino_GFX target backed by tft_sprite's existing RGB565 buffer.
+// This lets Arduino_GFX rasterize text into the sprite without allocating a
+// second framebuffer.
+class tft_sprite::SpriteGFX : public Arduino_GFX {
+public:
+    SpriteGFX(uint16_t *buffer, int16_t w, int16_t h) : Arduino_GFX(w, h), _buffer(buffer), _stride(w) {}
+
+    bool begin(int32_t speed = GFX_NOT_DEFINED) override {
+        (void)speed;
+        return true;
+    }
+
+    void writePixelPreclipped(int16_t x, int16_t y, uint16_t color) override {
+        _buffer[static_cast<size_t>(y) * static_cast<size_t>(_stride) + static_cast<size_t>(x)] = color;
+    }
+
+    void writeFillRectPreclipped(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) override {
+        if (w <= 0 || h <= 0) return;
+        for (int16_t row = 0; row < h; ++row) {
+            uint16_t *line = _buffer + static_cast<size_t>(y + row) * static_cast<size_t>(_stride) +
+                             static_cast<size_t>(x);
+            std::fill(line, line + w, color);
+        }
+    }
+
+private:
+    uint16_t *_buffer;
+    int16_t _stride;
+};
+
 tft_sprite::tft_sprite(tft_display *parent) : _display(parent) {}
+
+tft_sprite::~tft_sprite() {
+    delete _renderer;
+    _renderer = nullptr;
+}
 
 void *tft_sprite::createSprite(int16_t w, int16_t h, uint8_t frames) {
     (void)frames;
     if (w <= 0 || h <= 0) return nullptr;
+
+    delete _renderer;
+    _renderer = nullptr;
+
     _width = w;
     _height = h;
     _buffer.assign(static_cast<size_t>(w) * static_cast<size_t>(h), 0);
+
+    if (_buffer.empty()) {
+        _width = _height = 0;
+        return nullptr;
+    }
+
+    _renderer = new SpriteGFX(_buffer.data(), _width, _height);
+    if (_renderer) {
+        _renderer->begin();
+        _renderer->setTextWrap(false);
+        _renderer->setTextSize(_textSize);
+        if (_textBgFill)
+            _renderer->setTextColor(static_cast<uint16_t>(_textColor), static_cast<uint16_t>(_textBgColor));
+        else _renderer->setTextColor(static_cast<uint16_t>(_textColor));
+        _renderer->setCursor(_cursorX, _cursorY);
+    }
+
     return _buffer.data();
 }
 
 void tft_sprite::deleteSprite() {
+    delete _renderer;
+    _renderer = nullptr;
     _buffer.clear();
     _buffer.shrink_to_fit();
     _width = _height = 0;
@@ -548,16 +606,26 @@ void tft_sprite::setColorDepth(uint8_t depth) { _colorDepth = depth; }
 void tft_sprite::setCursor(int16_t x, int16_t y) {
     _cursorX = x;
     _cursorY = y;
+    if (_renderer) _renderer->setCursor(x, y);
 }
 
-void tft_sprite::setTextColor(uint16_t c) { _textColor = c; }
+void tft_sprite::setTextColor(uint16_t c) {
+    _textColor = c;
+    _textBgFill = false;
+    if (_renderer) _renderer->setTextColor(c);
+}
 
 void tft_sprite::setTextColor(uint16_t c, uint16_t b) {
     _textColor = c;
     _textBgColor = b;
+    _textBgFill = true;
+    if (_renderer) _renderer->setTextColor(c, b);
 }
 
-void tft_sprite::setTextSize(uint8_t s) { _textSize = s ? s : 1; }
+void tft_sprite::setTextSize(uint8_t s) {
+    _textSize = s ? s : 1;
+    if (_renderer) _renderer->setTextSize(_textSize);
+}
 
 void tft_sprite::setTextDatum(uint8_t d) { _textDatum = d; }
 
@@ -700,18 +768,14 @@ void tft_sprite::fillTriangle(
 }
 
 void tft_sprite::pushSprite(int32_t x, int32_t y, uint32_t transparent) {
-    if (!_hasBuffer() || !_display) return;
-    if (transparent == TFT_TRANSPARENT) {
-        for (int32_t j = 0; j < _height; ++j) {
-            const uint16_t *row = &_buffer[static_cast<size_t>(j) * static_cast<size_t>(_width)];
-            for (int32_t i = 0; i < _width; ++i) {
-                uint16_t color = row[i];
-                if (color != static_cast<uint16_t>(transparent)) { _display->drawPixel(x + i, y + j, color); }
-            }
-        }
-    } else {
-        _display->pushImage(x, y, _width, _height, _buffer.data());
-    }
+    if (!_hasBuffer() || !_display || !_display->_gfx) return;
+
+    // Match sprite semantics used by the other backends: the supplied color is
+    // always the transparency key. Arduino_GFX can composite the RGB565 buffer
+    // directly instead of issuing one display write per visible pixel.
+    RUN_ON_MUTEX(_display->_gfx->draw16bitRGBBitmapWithTranColor(
+        x, y, _buffer.data(), static_cast<uint16_t>(transparent), _width, _height
+    ));
 }
 
 void tft_sprite::pushToSprite(tft_sprite *dest, int32_t x, int32_t y, uint32_t transparent) {
@@ -830,8 +894,46 @@ void tft_sprite::fillRectVGradient(
 
 int16_t tft_sprite::drawString(const String &string, int32_t x, int32_t y, uint8_t font) {
     (void)font;
-    setCursor(x, y);
-    return string.length();
+    if (!_hasBuffer() || !_renderer) return 0;
+
+    const int16_t w = static_cast<int16_t>(string.length() * 6 * _textSize);
+    const int16_t h = static_cast<int16_t>(8 * _textSize);
+    int32_t cx = x;
+    int32_t cy = y;
+
+    switch (_textDatum) {
+        case TC_DATUM: cx -= w / 2; break;
+        case TR_DATUM: cx -= w; break;
+        case MC_DATUM:
+            cx -= w / 2;
+            cy -= h / 2;
+            break;
+        case MR_DATUM:
+            cx -= w;
+            cy -= h / 2;
+            break;
+        case BC_DATUM:
+            cx -= w / 2;
+            cy -= h;
+            break;
+        case BR_DATUM:
+            cx -= w;
+            cy -= h;
+            break;
+        case BL_DATUM: cy -= h; break;
+        default: break;
+    }
+
+    _renderer->setCursor(cx, cy);
+    _renderer->setTextSize(_textSize);
+    if (_textBgFill)
+        _renderer->setTextColor(static_cast<uint16_t>(_textColor), static_cast<uint16_t>(_textBgColor));
+    else _renderer->setTextColor(static_cast<uint16_t>(_textColor));
+
+    _renderer->print(string);
+    _cursorX = _renderer->getCursorX();
+    _cursorY = _renderer->getCursorY();
+    return w;
 }
 
 bool tft_sprite::_hasBuffer() const { return !_buffer.empty() && _width > 0 && _height > 0; }
