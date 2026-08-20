@@ -356,7 +356,7 @@ void tft_display::setTextSize(uint8_t s) {
 
 void tft_display::setTextColor(uint16_t c) {
     _textColor = c;
-    if (_gfx) _gfx->setTextColor(gxepd2_dither::ditherColor(0, 0, c));
+    if (_gfx) _gfx->setTextColor(gxepd2_dither::snapColor(c));
 }
 
 void tft_display::setTextColor(uint16_t c, uint16_t b, bool bgfill) {
@@ -365,7 +365,7 @@ void tft_display::setTextColor(uint16_t c, uint16_t b, bool bgfill) {
     _textBgColor = b;
     // Text is rendered glyph by glyph, so a per-pixel dither would smear the
     // characters; pick the nearest of the two panel levels instead.
-    if (_gfx) _gfx->setTextColor(gxepd2_dither::ditherColor(0, 0, c), gxepd2_dither::ditherColor(0, 0, b));
+    if (_gfx) _gfx->setTextColor(gxepd2_dither::snapColor(c), gxepd2_dither::snapColor(b));
 }
 
 void tft_display::setTextDatum(uint8_t d) { _textDatum = d; }

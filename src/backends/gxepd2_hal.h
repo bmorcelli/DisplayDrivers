@@ -186,6 +186,14 @@ struct gxepd2_dither {
 #endif
         return (luma > threshold) ? GxEPD_WHITE : GxEPD_BLACK;
     }
+
+    // Text is rendered glyph by glyph, so a per-pixel dither would smear the
+    // characters; snap to the nearer of the two panel levels against a fixed
+    // mid-grey threshold instead.
+    static uint16_t snapColor(uint16_t color) {
+        if (color == GxEPD_BLACK || color == GxEPD_WHITE) return color;
+        return (rgb565ToLuma(color) > 128U) ? GxEPD_WHITE : GxEPD_BLACK;
+    }
 };
 
 // One GxEPD2 panel class, with every drawing primitive routed through a
