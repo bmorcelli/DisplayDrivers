@@ -156,6 +156,13 @@
 #if !defined(GXEPD2_DITHER)
     #define GXEPD2_DITHER 1
 #endif
+
+// Partial (fast waveform) updates never fully settle every pixel, so unchanged
+// areas drift darker with each one. Force a full (flashing) refresh every this
+// many partial ones to clear that drift. Set to 0 to disable.
+#if !defined(GXEPD2_FULL_REFRESH_INTERVAL)
+    #define GXEPD2_FULL_REFRESH_INTERVAL 10
+#endif
 // clang-format on
 
 // Reducing the launcher's RGB565 palette to the panel's two levels. Kept off
@@ -207,8 +214,7 @@ class gxepd2_panel : public GxEPD2_BW<PANEL, PAGE_H> {
 public:
     // Pins come from displayConfig, not from the macros, so a board can probe
     // its hardware and retarget the panel before begin() builds this.
-    gxepd2_panel(int16_t cs, int16_t dc, int16_t rst, int16_t busy)
-        : Base(PANEL(cs, dc, rst, busy)) {}
+    gxepd2_panel(int16_t cs, int16_t dc, int16_t rst, int16_t busy) : Base(PANEL(cs, dc, rst, busy)) {}
 
     void drawPixel(int16_t x, int16_t y, uint16_t color) override {
         Base::drawPixel(x, y, gxepd2_dither::ditherColor(x, y, color));
@@ -347,6 +353,7 @@ private:
 
     GxEPD2_GFX *_gfx = nullptr;
     bool _needsFullRefresh = true;
+    uint8_t _partialCount = 0;
     uint16_t _height = TFT_HEIGHT;
     uint16_t _width = TFT_WIDTH;
     bool _swapBytes = false;

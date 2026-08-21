@@ -91,7 +91,11 @@ void tft_display::setRotation(uint8_t r) {
 
 void tft_display::display(bool fullRefresh) {
     if (!_gfx) return;
-    const bool useFullRefresh = fullRefresh || _needsFullRefresh;
+    bool useFullRefresh = fullRefresh || _needsFullRefresh;
+#if GXEPD2_FULL_REFRESH_INTERVAL
+    if (!useFullRefresh && ++_partialCount >= GXEPD2_FULL_REFRESH_INTERVAL) { useFullRefresh = true; }
+#endif
+    if (useFullRefresh) _partialCount = 0;
     _gfx->display(!useFullRefresh);
     _needsFullRefresh = false;
 }
