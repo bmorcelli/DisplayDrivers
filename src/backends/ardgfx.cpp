@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "../DisplayDrivers.h"
+#include <font/glcdfont.h>
 
 #if defined(USE_ARDUINO_GFX)
 
@@ -550,11 +551,15 @@ void tft_sprite::setCursor(int16_t x, int16_t y) {
     _cursorY = y;
 }
 
-void tft_sprite::setTextColor(uint16_t c) { _textColor = c; }
+void tft_sprite::setTextColor(uint16_t c) {
+    _textColor = c;
+    _textBgFill = false;
+}
 
 void tft_sprite::setTextColor(uint16_t c, uint16_t b) {
     _textColor = c;
     _textBgColor = b;
+    _textBgFill = true;
 }
 
 void tft_sprite::setTextSize(uint8_t s) { _textSize = s ? s : 1; }
@@ -700,18 +705,11 @@ void tft_sprite::fillTriangle(
 }
 
 void tft_sprite::pushSprite(int32_t x, int32_t y, uint32_t transparent) {
-    if (!_hasBuffer() || !_display) return;
-    if (transparent == TFT_TRANSPARENT) {
-        for (int32_t j = 0; j < _height; ++j) {
-            const uint16_t *row = &_buffer[static_cast<size_t>(j) * static_cast<size_t>(_width)];
-            for (int32_t i = 0; i < _width; ++i) {
-                uint16_t color = row[i];
-                if (color != static_cast<uint16_t>(transparent)) { _display->drawPixel(x + i, y + j, color); }
-            }
-        }
-    } else {
-        _display->pushImage(x, y, _width, _height, _buffer.data());
-    }
+    if (!_hasBuffer() || !_display || !_display->_gfx) return;
+
+    RUN_ON_MUTEX(_display->_gfx->draw16bitRGBBitmapWithTranColor(
+        x, y, _buffer.data(), static_cast<uint16_t>(transparent), _width, _height
+    ));
 }
 
 void tft_sprite::pushToSprite(tft_sprite *dest, int32_t x, int32_t y, uint32_t transparent) {
@@ -828,10 +826,78 @@ void tft_sprite::fillRectVGradient(
     fillRect(x, y, w, h, color1);
 }
 
-int16_t tft_sprite::drawString(const String &string, int32_t x, int32_t y, uint8_t font) {
-    (void)font;
-    setCursor(x, y);
-    return string.length();
+int16_t tft_sprite::drawString(const String &string, int32_t x, int32_t y, uint8_t fontNum) {
+    (void)fontNum;
+    if (!_hasBuffer()) return 0;
+
+    const int16_t charW = static_cast<int16_t>(6 * _textSize);
+    const int16_t charH = static_cast<int16_t>(8 * _textSize);
+    const int16_t textW = static_cast<int16_t>(string.length() * charW);
+
+    int32_t cx = x;
+    int32_t cy = y;
+
+    switch (_textDatum) {
+        case TC_DATUM: cx -= textW / 2; break;
+        case TR_DATUM: cx -= textW; break;
+        case MC_DATUM:
+            cx -= textW / 2;
+            cy -= charH / 2;
+            break;
+        case MR_DATUM:
+            cx -= textW;
+            cy -= charH / 2;
+            break;
+        case BC_DATUM:
+            cx -= textW / 2;
+            cy -= charH;
+            break;
+        case BR_DATUM:
+            cx -= textW;
+            cy -= charH;
+            break;
+        case BL_DATUM: cy -= charH; break;
+        default: break;
+    }
+
+    const int32_t startX = cx;
+    const uint16_t fg = static_cast<uint16_t>(_textColor);
+    const uint16_t bg = static_cast<uint16_t>(_textBgColor);
+
+    for (size_t n = 0; n < string.length(); ++n) {
+        const unsigned char c = static_cast<unsigned char>(string[n]);
+
+        if (c == '\n') {
+            cx = startX;
+            cy += charH;
+            continue;
+        }
+        if (c == '\r') continue;
+
+        for (int8_t col = 0; col < 5; ++col) {
+            uint8_t bits = pgm_read_byte(&::font[c * 5 + col]);
+
+            for (int8_t row = 0; row < 8; ++row, bits >>= 1) {
+                const int32_t px = cx + col * _textSize;
+                const int32_t py = cy + row * _textSize;
+
+                if (bits & 0x01) {
+                    fillRect(px, py, _textSize, _textSize, fg);
+                } else if (_textBgFill) {
+                    fillRect(px, py, _textSize, _textSize, bg);
+                }
+            }
+        }
+
+        // Sixth column is the fixed-font character spacing.
+        if (_textBgFill) { fillRect(cx + 5 * _textSize, cy, _textSize, charH, bg); }
+
+        cx += charW;
+    }
+
+    _cursorX = cx;
+    _cursorY = cy;
+    return textW;
 }
 
 bool tft_sprite::_hasBuffer() const { return !_buffer.empty() && _width > 0 && _height > 0; }
