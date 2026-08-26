@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: MIT
 
 #include "../DisplayDrivers.h"
-#include <font/glcdfont.h>
 
 #if defined(USE_ARDUINO_GFX)
+#include <font/glcdfont.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
