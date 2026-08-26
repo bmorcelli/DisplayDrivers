@@ -382,7 +382,7 @@ public:
     uint8_t getTextDatum() const;
     void setTextFont(uint8_t f);
     void setTextWrap(bool wrapX, bool wrapY = false);
-    int16_t drawString(const String &string, int32_t x, int32_t y, uint8_t font = 1);
+    int16_t drawString(const String &string, int32_t x, int32_t y, uint8_t fontNum = 1);
     int16_t drawCentreString(const String &string, int32_t x, int32_t y, uint8_t font = 1);
     int16_t drawRightString(const String &string, int32_t x, int32_t y, uint8_t font = 1);
 
@@ -523,6 +523,7 @@ private:
     int16_t _cursorY = 0;
     uint32_t _textColor = TFT_WHITE;
     uint32_t _textBgColor = TFT_BLACK;
+    bool _textBgFill = false;
     uint8_t _textSize = 1;
     uint8_t _textDatum = 0;
 };
