@@ -46,6 +46,13 @@ public:
     String(const char *s) : _s(s ? s : "") {}
     String(const std::string &s) : _s(s) {}
     String(char c) : _s(1, c) {}
+    // Base defaults to 10 so plain String(intValue) call sites (the vast
+    // majority) are unaffected; only String(x, 16) and similar pick a radix.
+    // base takes the same param type (int) as the float/double decimals
+    // overloads below on purpose: a mismatched (unsigned char) type here
+    // ties with those on one argument and loses on the other, making every
+    // 2-argument String(byteValue, N) call ambiguous.
+    String(unsigned char v, int base = 10) { _assignBase(v, static_cast<unsigned char>(base)); }
     String(int v) : _s(std::to_string(v)) {}
     String(unsigned int v) : _s(std::to_string(v)) {}
     String(long v) : _s(std::to_string(v)) {}
@@ -135,7 +142,10 @@ public:
     void toLowerCase() {
         for (auto &c : _s) c = static_cast<char>(::tolower((unsigned char)c));
     }
-    void concat(const String &o) { _s += o._s; }
+    bool concat(const String &o) {
+        _s += o._s;
+        return true;
+    }
     int toInt() const { return _s.empty() ? 0 : atoi(_s.c_str()); }
     float toFloat() const { return _s.empty() ? 0.f : static_cast<float>(atof(_s.c_str())); }
     int compareTo(const String &o) const { return _s.compare(o._s); }
@@ -145,6 +155,25 @@ private:
         char buf[64];
         snprintf(buf, sizeof(buf), "%.*f", decimals, v);
         _s = buf;
+    }
+    // Mirrors Arduino String's String(byte value, base) constructor: base 10
+    // is the common decimal case, anything else (typically 16) renders
+    // unsigned digit-by-digit like utoa does on real hardware.
+    void _assignBase(unsigned char v, unsigned char base) {
+        if (base == 10) {
+            _s = std::to_string(v);
+            return;
+        }
+        if (base < 2 || base > 36) base = 10;
+        static const char digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+        char buf[8 * sizeof(unsigned long) + 1];
+        char *p = buf + sizeof(buf) - 1;
+        *p = '\0';
+        do {
+            *--p = digits[v % base];
+            v /= base;
+        } while (v);
+        _s = p;
     }
     std::string _s;
 };
