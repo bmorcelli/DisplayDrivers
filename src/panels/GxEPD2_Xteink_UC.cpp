@@ -41,8 +41,15 @@ void GxEPD2_Xteink_UC::_sendPlane(uint8_t command, bool invert) {
         for (uint16_t xb = 0; xb < _wb; xb++) _transfer(0xFF);
     }
     for (uint16_t y = 0; y < _h; y++) {
-        // The gates scan bottom to top, so the panel wants the last row first.
-        const uint16_t srcY = _pending_mirror ? y : (uint16_t)(_h - 1 - y);
+        // Confirmed on X4 Pro hardware (UC8279, index 2, ROTATION=3): the
+        // panel is physically landscape but driven rotated to portrait, so
+        // this class's own "X" (source/SHL, PSR0 — left as the SDK default,
+        // see GxEPD2_X4_800x480_UC8279.cpp) is what the user sees as the
+        // vertical axis, and this row/gate order is what the user sees as
+        // the horizontal axis. The baseline (row order reversed by default)
+        // showed correct Y but mirrored X on screen; feeding rows in natural
+        // top-to-bottom order fixes that, without touching PSR0.
+        const uint16_t srcY = _pending_mirror ? (uint16_t)(_h - 1 - y) : y;
         for (uint16_t xb = 0; xb < _wb; xb++) {
             uint8_t data = _pending_fill;
             if (_pending != nullptr) {
