@@ -51,6 +51,26 @@ void GxEPD2_X4_800x480_UC8279::_initController() {
 
     _writeCommand(0xE1); // gate scan selection
     _writeData(GATE_SCAN);
+
+    // PTL (partial window), set once here rather than per refresh: _refreshFrame()
+    // brackets every differential update with PTIN/PTOUT (0x91/0x92) but never a
+    // 0x90, so without this the controller has no partial window defined and a
+    // partial DRF has nothing to diff over -- confirmed on X4 Pro hardware as
+    // "screen flashes but never draws anything" as soon as GXEPD2_FULL_REFRESH_
+    // INTERVAL lets a real partial update through. Covers the whole addressed
+    // area (0..WIDTH-1, 0..GATE_TOTAL-1 in gate space), matching how the
+    // confirmed crosspoint-reader UC8279 driver sets its own full-panel PTL once
+    // at init and never re-sends it before PTIN.
+    _writeCommand(0x90); // PTL
+    _writeData(0x00);
+    _writeData(0x00);
+    _writeData((uint8_t)((WIDTH - 1) >> 8));
+    _writeData((uint8_t)((WIDTH - 1) & 0xFF));
+    _writeData(0x00);
+    _writeData(0x00);
+    _writeData((uint8_t)((GATE_TOTAL - 1) >> 8));
+    _writeData((uint8_t)((GATE_TOTAL - 1) & 0xFF));
+    _writeData(0x01); // PT_SCAN
 }
 
 void GxEPD2_X4_800x480_UC8279::_refreshFrame(bool full_sync) {
