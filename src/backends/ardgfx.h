@@ -13,6 +13,7 @@ class tft_logger;
 #if defined(USE_ARDUINO_GFX)
 #include "tft_defines.h"
 #include <Arduino_GFX_Library.h>
+#include "../panels/Arduino_NV3031B.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdarg>

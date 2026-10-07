@@ -590,6 +590,10 @@ Driver: Arduino_DSI_Display. Needs `TFT_DATABUS_N 4` and `TFT_DSI_INIT`, naming 
 tables Arduino_GFX ships in `display/Arduino_DSI_Display.h` (`hi8561_init_operations`,
 `rm69a10_amoled_init_operations`, `jd9365_init_operations`, …).
 
+Group I: `[bus,rst,r,ips,w,h,ofs1,ofs2]` (same as group A) -> `TFT_DISPLAY_DRIVER_N` 51
+Drivers shipped by this library in `src/panels/` rather than by Arduino_GFX: NV3031B (51, QSPI,
+`TFT_DATABUS_N 1`, Seeed Wio Tracker L2).
+
 ### Init tables, and swapping them at runtime (groups G and H)
 
 Groups G and H have no driver class of their own — the panel *is* the bus — so their register
