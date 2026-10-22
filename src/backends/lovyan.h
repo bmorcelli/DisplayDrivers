@@ -9,6 +9,7 @@
 #if !defined(LOVYAN_PANEL)
 #error "You must define LOVYAN_PANEL:\n \
 - Panel_ST7789\n \
+- Panel_NV3031B (QSPI)\n \
 - Panel_GC9A01\n \
 - Panel_GDEW0154M09\n \
 - Panel_HX8357B \n \
@@ -149,8 +150,14 @@
 // Per-bus configuration
 // ---------------------------------------------------------------------------
 #if defined(LOVYAN_SPI_BUS)
-    #if !defined(TFT_SCLK) || !defined(TFT_MOSI) || !defined(TFT_DC)
-        #error "To use a SPI bus, need to define: TFT_SCLK, TFT_MOSI, TFT_DC"
+    // Quad SPI (TFT_D0..TFT_D3) replaces MOSI/MISO, and QSPI panels carry the
+    // command/data phase in the frame itself, so they have no DC line either.
+    #if defined(TFT_D0) && defined(TFT_D1) && defined(TFT_D2) && defined(TFT_D3)
+        #if !defined(TFT_SCLK)
+            #error "To use a QSPI bus, need to define: TFT_SCLK, TFT_D0 .. TFT_D3"
+        #endif
+    #elif !defined(TFT_SCLK) || !defined(TFT_MOSI) || !defined(TFT_DC)
+        #error "To use a SPI bus, need to define: TFT_SCLK, TFT_MOSI, TFT_DC (or TFT_D0 .. TFT_D3 for QSPI)"
     #endif
     #if !defined(TFT_MISO)
         #define TFT_MISO -1

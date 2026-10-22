@@ -280,6 +280,10 @@ read first; the LovyanGFX-specific names on the right are per-board overrides:
 #define TFT_HEIGHT 240
 ```
 
+For a QSPI panel (e.g. `Panel_NV3031B`), define `TFT_D0` .. `TFT_D3` instead of
+`TFT_MOSI`/`TFT_MISO`; `TFT_DC` is not needed. `Bus_SPI` switches to quad mode when all
+four are set, and the panel is marked non-readable.
+
 ### I2C bus (`LOVYAN_BUS Bus_I2C`)
 
 ```c

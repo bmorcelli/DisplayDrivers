@@ -31,7 +31,7 @@ void tft_display::begin(uint32_t speed) {
     {
         auto cfg = _bus_instance.config();
 #if defined(LOVYAN_SPI_BUS)
-        cfg.spi_host = displayConfig.spiHost;
+        cfg.spi_host = (spi_host_device_t)displayConfig.spiHost;
         cfg.spi_mode = displayConfig.spiMode;
         cfg.freq_write = displayConfig.freqWrite;
         cfg.freq_read = displayConfig.freqRead;
@@ -42,6 +42,11 @@ void tft_display::begin(uint32_t speed) {
         cfg.pin_mosi = displayConfig.mosi;
         cfg.pin_miso = displayConfig.miso;
         cfg.pin_dc = displayConfig.dc;
+        // Bus_SPI switches to quad mode when all four IO pins are set.
+        cfg.pin_io0 = displayConfig.d[0];
+        cfg.pin_io1 = displayConfig.d[1];
+        cfg.pin_io2 = displayConfig.d[2];
+        cfg.pin_io3 = displayConfig.d[3];
 
 #elif defined(LOVYAN_I2C_BUS)
         cfg.i2c_port = displayConfig.i2cPort;
@@ -83,7 +88,11 @@ void tft_display::begin(uint32_t speed) {
         cfg.offset_x = displayConfig.offsetX;
         cfg.offset_y = displayConfig.offsetY;
         cfg.offset_rotation = displayConfig.rotation;
+#if defined(LOVYAN_SPI_BUS)
+        cfg.readable = displayConfig.d[0] < 0; // nothing to read back through on QSPI
+#else
         cfg.readable = true;
+#endif
         cfg.invert = displayConfig.invert;
         cfg.rgb_order = displayConfig.rgbOrder;
         cfg.dlen_16bit = false;
