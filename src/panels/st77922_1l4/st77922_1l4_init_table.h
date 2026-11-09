@@ -1,3 +1,15 @@
+#pragma once
+
+#include <stddef.h>
+#include <stdint.h>
+
+typedef struct {
+    int cmd;               // register
+    const void *data;      // parameter bytes
+    size_t data_bytes;     // number of parameter bytes
+    unsigned int delay_ms; // delay after this register write
+} st77922_lcd_init_cmd_t;
+
 // Verbatim from the board vendor's own example (LCDwiki ES3C35P,
 // github.com/ydedox/st77922 Example_01, the ACTIVE st77922_lcd_init[] table --
 // not the commented-out one above it), renamed only. Confirmed working on this

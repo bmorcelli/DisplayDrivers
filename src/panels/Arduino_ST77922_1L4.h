@@ -34,7 +34,6 @@
 
 #include <driver/spi_master.h>
 
-#include "st77922_1l4/esp_lcd_st77922.h" // only for st77922_lcd_init_cmd_t
 #include "st77922_1l4/st77922_1l4_init_table.h"
 
 class Arduino_ST77922_1L4 : public Arduino_GFX {
@@ -69,11 +68,7 @@ public:
         buscfg.data3_io_num = _d3;
         buscfg.max_transfer_sz = CHUNK_PIXELS * 2 + 8;
         buscfg.flags = SPICOMMON_BUSFLAG_MASTER | SPICOMMON_BUSFLAG_IOMUX_PINS | SPICOMMON_BUSFLAG_QUAD;
-        Serial.printf("[ST77922] pins cs=%d sclk=%d d0=%d d1=%d d2=%d d3=%d speed=%d\n", _cs, _sclk, _d0, _d1, _d2, _d3,
-                      (int)speed);
-        esp_err_t bus_err = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
-        Serial.printf("[ST77922] spi_bus_initialize -> 0x%x\n", (unsigned)bus_err);
-        if (bus_err != ESP_OK) return false;
+        if (spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO) != ESP_OK) return false;
 
         spi_device_interface_config_t devcfg = {};
         devcfg.command_bits = 0;
@@ -83,9 +78,7 @@ public:
         devcfg.spics_io_num = _cs;
         devcfg.flags = SPI_DEVICE_HALFDUPLEX;
         devcfg.queue_size = 17;
-        esp_err_t dev_err = spi_bus_add_device(SPI2_HOST, &devcfg, &_dev);
-        Serial.printf("[ST77922] spi_bus_add_device -> 0x%x\n", (unsigned)dev_err);
-        if (dev_err != ESP_OK) return false;
+        if (spi_bus_add_device(SPI2_HOST, &devcfg, &_dev) != ESP_OK) return false;
 
         const size_t n = sizeof(es3c35p_lcd_init_cmds) / sizeof(es3c35p_lcd_init_cmds[0]);
         for (size_t i = 0; i < n; i++) {
@@ -93,21 +86,7 @@ public:
                      es3c35p_lcd_init_cmds[i].data_bytes);
             if (es3c35p_lcd_init_cmds[i].delay_ms) delay(es3c35p_lcd_init_cmds[i].delay_ms);
         }
-        Serial.printf("[ST77922] init sent: %u commands\n", (unsigned)n);
 
-#ifdef ST77922_BRINGUP_TEST
-        // Straight to the panel, bypassing Launcher: full white for 3 s, then
-        // red / green / blue thirds for 3 s.
-        Serial.println("[ST77922] test: full white 3s");
-        fillNative(0, 0, WIDTH, HEIGHT, 0xFFFF);
-        delay(3000);
-        Serial.println("[ST77922] test: R/G/B bars 3s");
-        fillNative(0, 0, WIDTH, 160, 0xF800);
-        fillNative(0, 160, WIDTH, 320, 0x07E0);
-        fillNative(0, 320, WIDTH, 480, 0x001F);
-        delay(3000);
-        Serial.println("[ST77922] test: done");
-#endif
         return true;
     }
 
