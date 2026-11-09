@@ -80,6 +80,18 @@ void tft_display::buildDisplay() {
         cfg.width, cfg.height, bus, 0, true, cfg.rst,
         static_cast<const lcd_init_cmd_t *>(cfg.initOps), cfg.initOpsLen
     );
+#elif TFT_DATABUS_N == 6
+    // Own-bus QSPI, same shape as the RGB/DSI cases above: this panel's
+    // command phase is single-line while Arduino_ESP32QSPI (bus 1) hardcodes
+    // every phase to 4 lines, so there is no generic Arduino_DataBus here --
+    // Arduino_ST77922_1L4 drives its own ESP-IDF SPI bus and panel driver
+    // together. See Arduino_ST77922_1L4.h for why.
+    #if TFT_DISPLAY_DRIVER_N != 52
+        #error "TFT_DATABUS_N=6 requires TFT_DISPLAY_DRIVER_N=52 (Arduino_ST77922_1L4)"
+    #endif
+    _gfx = new Arduino_ST77922_1L4(
+        cfg.width, cfg.height, cfg.cs, cfg.sclk, cfg.d[0], cfg.d[1], cfg.d[2], cfg.d[3], cfg.rst, drvRot
+    );
 #else
     #if TFT_DATABUS_N == 0
     bus = new TFT_DATABUS(cfg.dc, cfg.cs, cfg.sclk, cfg.mosi, cfg.miso, &SPI);

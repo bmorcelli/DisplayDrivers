@@ -14,6 +14,9 @@ class tft_logger;
 #include "tft_defines.h"
 #include <Arduino_GFX_Library.h>
 #include "../panels/Arduino_NV3031B.h"
+#if defined(TFT_DATABUS_N) && TFT_DATABUS_N == 6
+#include "../panels/Arduino_ST77922_1L4.h"
+#endif
 #include <algorithm>
 #include <cmath>
 #include <cstdarg>
@@ -21,7 +24,7 @@ class tft_logger;
 #include <memory>
 // clang-format off
 // Check Data bus
-#if !defined(TFT_DATABUS_N) || TFT_DATABUS_N > 5
+#if !defined(TFT_DATABUS_N) || TFT_DATABUS_N > 6
     #warning "Please define the Data bus used for this board:\n \
     - 0: Arduino_HWSPI: Shared SPI with other devices;\n \
     - 1: Arduino_ESP32QSPI: Quad SPI, used in AMOLED and some new displays;\n \
@@ -29,6 +32,7 @@ class tft_logger;
     - 3: Arduino_ESP32RGBPanel: Parallel 16 bit;\n \
     - 4: Arduino_ESP32DSIPanel: DSI Panel for P4 devices;\n \
     - 5: Arduino_ESP32PAR8: Parallel 8 bit, D0-D7 spread over both GPIO banks;\n \
+    - 6: Arduino_ST77922_1L4: QSPI with a single-line command phase (ST77916/ST77922 family);\n \
     \n \
     Using Arduino_HWSPI as default."
     #define TFT_DATABUS_N 0
@@ -141,6 +145,19 @@ class tft_logger;
                 TFT_HEIGHT, TFT_COL_OFS1, TFT_ROW_OFS1, TFT_COL_OFS2,TFT_ROW_OFS2 "
     #endif
 
+#elif TFT_DATABUS_N == 6
+// Own-bus QSPI (see DisplayConfig.h's DISPLAY_BUS_QSPI_1L4): no
+// Arduino_DataBus here, Arduino_ST77922_1L4 owns its ESP-IDF SPI bus and
+// panel driver together. No TFT_IPS/offset macros either -- this class
+// doesn't use Arduino_GFX's generic MADCTL/window-offset mechanism at all.
+    #ifndef TFT_DISPLAY_DRIVER_N
+    #define TFT_DISPLAY_DRIVER_N 52
+    #endif
+    #if !defined(TFT_CS) || !defined(TFT_SCLK) || !defined(TFT_D0) || !defined(TFT_D1) || !defined(TFT_D2) || \
+        !defined(TFT_D3) || !defined(TFT_RST) || !defined(TFT_ROTATION) || !defined(TFT_WIDTH) || !defined(TFT_HEIGHT)
+        #error "Missing Definitions for: TFT_CS, TFT_SCLK, TFT_D0, TFT_D1, TFT_D2, TFT_D3, \
+                TFT_RST, TFT_ROTATION, TFT_WIDTH, TFT_HEIGHT"
+    #endif
 #else
     #error "Invalid TFT_DATABUS_N\n Please define the Data bus used for this board:\n \
     - 0: Arduino_HWSPI: Shared SPI with other devices;\n \
@@ -148,7 +165,8 @@ class tft_logger;
     - 2: Arduino_ESP32PAR8Q: Parallel 8 bit, D0-D7 on the same GPIO bank;\n \
     - 3: Arduino_ESP32RGBPanel: Parallel 16 bit;\n \
     - 4: Arduino_ESP32DSIPanel: DSI Panel for P4 devices;\n \
-    - 5: Arduino_ESP32PAR8: Parallel 8 bit, D0-D7 spread over both GPIO banks;"
+    - 5: Arduino_ESP32PAR8: Parallel 8 bit, D0-D7 spread over both GPIO banks;\n \
+    - 6: Arduino_ST77922_1L4: QSPI with a single-line command phase (ST77916/ST77922 family);"
 #endif
 
 // Set Databus Type for constructor
@@ -224,6 +242,7 @@ class tft_logger;
     [bus,rst,w,h] 47 SSD1306; 48 SH1106;\n \
     [RGB] 49 Arduino_RGB_Display (Arduino_ESP32RGBPanel: ST7262/ST7701);\n \
     [DSI] 50 Arduino_DSI_Display;\n \
+    [own bus, TFT_DATABUS_N=6 only] 52 Arduino_ST77922_1L4 (ST77916/ST77922 family, QSPI with a single-line command phase);\n \
     "
 #endif
 
