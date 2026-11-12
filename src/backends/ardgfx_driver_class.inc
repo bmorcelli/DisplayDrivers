@@ -121,6 +121,8 @@
     #define DD_DRV_CLASS Arduino_DSI_Display
 #elif DD_DRV_ID == 51
     #define DD_DRV_CLASS Arduino_NV3031B // src/panels/, not part of Arduino_GFX
+#elif DD_DRV_ID == 52
+    #define DD_DRV_CLASS Arduino_ST77922_1L4 // src/panels/, not part of Arduino_GFX
 #else
     #error "Invalid driver id in TFT_DISPLAY_DRIVER_N / TFT_DISPLAY_DRIVER_N_ALT*"
 #endif

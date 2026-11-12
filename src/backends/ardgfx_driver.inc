@@ -32,6 +32,10 @@
     #error "Arduino_DSI_Display (50) needs the compile-time TFT_DSI_INIT table and is built\n \
     next to its bus, so it is not part of the runtime driver factory; selecting\n \
     TFT_DATABUS_N=4 already pins it. Do not name 50 in TFT_DISPLAY_DRIVER_N_ALT*."
+#elif DD_DRV_ID == 52
+    #error "Arduino_ST77922_1L4 (52) owns its ESP-IDF SPI bus and panel driver together, so it\n \
+    is not part of the runtime driver factory; selecting TFT_DATABUS_N=6 already pins it.\n \
+    Do not name 52 in TFT_DISPLAY_DRIVER_N_ALT*."
 #endif
 
 #include "ardgfx_driver_class.inc"

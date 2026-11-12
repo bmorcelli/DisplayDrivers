@@ -33,6 +33,12 @@ enum DisplayBus : uint8_t {
     DISPLAY_BUS_RGB = 3,      // Arduino_ESP32RGBPanel
     DISPLAY_BUS_DSI = 4,      // Arduino_ESP32DSIPanel
     DISPLAY_BUS_PAR8 = 5,     // Arduino_ESP32PAR8
+    // Own-bus QSPI, like RGB/DSI above: the panel and its bus are one class
+    // (Arduino_ST77922_1L4), not an Arduino_DataBus, because this panel's
+    // command phase is single-line while Arduino_ESP32QSPI (bus 1) hardcodes
+    // every phase to 4 lines -- a real protocol mismatch, not a config gap.
+    // See Arduino_ST77922_1L4.h.
+    DISPLAY_BUS_QSPI_1L4 = 6,
     // LovyanGFX bus families, kept clear of the ArduinoGFX range.
     DISPLAY_BUS_LGFX_SPI = 16,
     DISPLAY_BUS_LGFX_I2C = 17,
